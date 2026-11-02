@@ -1,0 +1,2781 @@
+<!DOCTYPE html>
+<html lang="id">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+<title>STC - Siap Teknik Cold Storage</title>
+
+<!-- PUSTAKA: html2canvas + jsPDF + autoTable -->
+<script src="https://cdnjs.cloudflare.com/ajax/libs/html2canvas/1.4.1/html2canvas.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf-autotable/3.5.31/jspdf.plugin.autotable.min.js"></script>
+
+<!-- FIREBASE COMPAT SDK v10.9.0 -->
+<script src="https://www.gstatic.com/firebasejs/10.9.0/firebase-app-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/10.9.0/firebase-auth-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/10.9.0/firebase-firestore-compat.js"></script>
+
+<style>
+  * { box-sizing: border-box; margin: 0; padding: 0; font-family: 'Inter', 'Segoe UI', system-ui, -apple-system, sans-serif; -webkit-tap-highlight-color: transparent; }
+  
+  body { 
+    background: #0d1527;
+    background-attachment: fixed;
+    color: #f8fafc;
+    padding: 10px; 
+    max-width: 1200px; 
+    margin: 0 auto; 
+    min-height: 100vh;
+  }
+
+  /* PENEGAKAN HAK AKSES REAL-TIME BEBAS BUG TAMPILAN */
+  body:not(.is-owner) .menu-khusus-owner,
+  body:not(.is-owner) .kolom-aksi-admin {
+    display: none !important;
+  }
+
+  @media screen and (max-width: 767px) and (orientation: landscape) {
+    body::before {
+      content: "⚠ Harap putar perangkat Anda kembali ke posisi Potret (Berdiri) untuk kenyamanan penggunaan aplikasi.";
+      position: fixed;
+      top: 0;
+      left: 0;
+      width: 100vw;
+      height: 100vh;
+      background: #0f172a;
+      color: #38bdf8;
+      font-size: 15px;
+      font-weight: bold;
+      text-align: center;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      padding: 20px;
+      z-index: 99999;
+    }
+  }
+
+  .header {
+    background: linear-gradient(135deg, #a31c24 0%, #254db9 100%);
+    color: #ffffff; 
+    padding: 16px 12px; 
+    border-radius: 14px;
+    text-align: center; 
+    margin-bottom: 8px;
+    box-shadow: 0 4px 15px rgba(0,0,0,0.4);
+    border: 1px solid rgba(255, 255, 255, 0.15);
+  }
+  .header h1 { 
+    font-size: 18px; 
+    margin-bottom: 4px; 
+    font-weight: 800; 
+    letter-spacing: 0.5px;
+  }
+  .cabang-edit { font-size: 13px; opacity: 0.9; font-weight: 600; display: flex; flex-direction: column; justify-content: center; align-items: center; gap: 4px; }
+  .cabang-edit input {
+    border: none; 
+    border-bottom: 2px solid #38bdf8;
+    background: transparent; 
+    color: #ffffff;
+    font-size: 13px; 
+    text-align: center;
+    padding: 2px 4px; 
+    outline: none; 
+    width: auto;
+    font-weight: 700;
+    text-transform: uppercase;
+  }
+  .alamat-header {
+    font-size: 11px;
+    opacity: 0.85;
+    margin-top: 2px;
+    font-weight: 500;
+  }
+
+  /* BANNER STATUS */
+  .banner-petugas-jaga {
+    background: #1e293b;
+    border: 1px solid #334155;
+    border-radius: 10px;
+    padding: 10px 14px;
+    margin-bottom: 15px;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    flex-wrap: wrap;
+    gap: 8px;
+  }
+  .banner-petugas-info {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    font-size: 13px;
+    color: #cbd5e1;
+    flex-wrap: wrap;
+  }
+  .badge-role-owner {
+    background: #059669;
+    color: #ffffff;
+    padding: 3px 8px;
+    border-radius: 6px;
+    font-weight: 800;
+    font-size: 11px;
+    letter-spacing: 0.5px;
+    border: 1px solid #34d399;
+  }
+
+  .badge-cloud {
+    padding: 3px 8px;
+    border-radius: 6px;
+    font-size: 11px;
+    font-weight: 700;
+    transition: all 0.3s;
+  }
+  .badge-cloud.online { background: #0284c7; color: #fff; }
+  .badge-cloud.offline { background: #dc2626; color: #fff; }
+  .badge-cloud.local { background: #64748b; color: #fff; }
+
+  .dashboard {
+    display: grid; 
+    grid-template-columns: repeat(2, 1fr);
+    gap: 10px; 
+    margin-bottom: 15px;
+  }
+  .menu-card {
+    padding: 14px 8px; 
+    border-radius: 12px; 
+    background: #048760;
+    border: 1px solid rgba(255, 255, 255, 0.1);
+    text-align: center; 
+    font-weight: 600; 
+    font-size: 13.5px;
+    color: #ffffff;
+    box-shadow: 0 4px 10px rgba(0,0,0,0.3);
+    cursor: pointer; 
+    transition: all 0.2s ease;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    gap: 8px;
+    min-height: 88px;
+  }
+  .menu-card:active { transform: scale(0.97); }
+  .menu-icon { font-size: 26px; line-height: 1; }
+
+  .card-cari-cepat { grid-column: span 2; background: linear-gradient(135deg, #1d52d8, #2563eb); border-color: #3b82f6; }
+  .card-ubah-harga { background: linear-gradient(135deg, #d97706, #cb6500); border-color: #f59e0b; }
+  .card-angsuran { background: linear-gradient(135deg, #0d9488, #0f766e); border-color: #14b8a6; }
+  .card-pengaturan { background: linear-gradient(135deg, #374151, #2d3748); border-color: #4b5563; }
+  .card-backup { background: linear-gradient(135deg, #7c3aed, #6d28d9); border-color: #8b5cf6; }
+  .card-pulihkan { background: linear-gradient(135deg, #3b82f6, #1d4ed8); border-color: #60a5fa; }
+  .card-penjaga { background: linear-gradient(135deg, #0284c7, #0369a1); border-color: #38bdf8; }
+
+  .page {
+    display: none; 
+    background: #1e293b; 
+    border-radius: 12px;
+    padding: 14px; 
+    margin-bottom: 15px;
+    box-shadow: 0 8px 20px rgba(0,0,0,0.3);
+    border: 1px solid #334155;
+    color: #f8fafc;
+  }
+  .page.active { display: block; }
+  .page h2 { margin-bottom: 12px; font-size: 16px; color: #38bdf8; font-weight: 700; }
+  
+  .nav-header-bar {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-bottom: 12px;
+  }
+
+  .back-btn {
+    display: inline-block; 
+    padding: 6px 10px;
+    background: #334155; 
+    color: #38bdf8;
+    border-radius: 6px; 
+    cursor: pointer; 
+    font-size: 11px;
+    font-weight: 600;
+    border: none;
+  }
+  .back-btn:hover { background: #475569; }
+
+  .tab-bar {
+    display: flex; 
+    gap: 6px; 
+    margin-bottom: 12px;
+    overflow-x: auto; 
+    background: #0f172a;
+    padding: 4px;
+    border-radius: 8px;
+  }
+  .tab {
+    padding: 8px 12px; 
+    border-radius: 6px; 
+    font-size: 12px;
+    font-weight: 600;
+    cursor: pointer; 
+    white-space: nowrap; 
+    border: none;
+    flex: 1;
+    text-align: center;
+  }
+  .tab.active { background: #2563eb; color: #ffffff; }
+  .tab:not(.active) { background: transparent; color: #94a3b8; }
+
+  .tab-content { display: none; }
+  .tab-content.active { display: block; }
+
+  .info-box {
+    padding: 10px; 
+    background: rgba(30, 58, 138, 0.4); 
+    border: 1px solid #2563eb;
+    border-radius: 8px; 
+    margin: 8px 0; 
+    font-size: 12px; 
+    color: #93c5fd;
+    line-height: 1.4;
+  }
+
+  .form-group { margin-bottom: 12px; position: relative; }
+  label { display: block; margin-bottom: 4px; font-weight: 600; color: #cbd5e1; font-size: 12px; }
+  input, select, textarea { 
+    width: 100%; 
+    padding: 10px; 
+    background: #0f172a;
+    border: 1px solid #334155; 
+    border-radius: 8px; 
+    font-size: 14px;
+    color: #f8fafc;
+    outline: none;
+    text-transform: uppercase;
+  }
+  input[type="date"] { text-transform: none; }
+  input:focus, select:focus, textarea:focus {
+    border-color: #3b82f6;
+    box-shadow: 0 0 0 2px rgba(59, 130, 246, 0.2);
+  }
+  input::placeholder, textarea::placeholder { color: #64748b; text-transform: none; }
+
+  button { 
+    padding: 10px 14px; 
+    border: none; 
+    border-radius: 8px; 
+    cursor: pointer; 
+    font-size: 13px; 
+    font-weight: 600; 
+    width: 100%; 
+    text-align: center;
+  }
+  .btn-primary { background: #2563eb; color: #fff; }
+  .btn-warning { background: #d97706; color: #fff; }
+  .btn-success { background: #059669; color: #fff; }
+  .btn-danger { background: #dc2626; color: #fff; }
+
+  .tombol-baris { display: flex; flex-direction: column; gap: 8px; width: 100%; }
+  .table-wrap { overflow-x: auto; margin-top: 8px; border-radius: 8px; border: 1px solid #334155; -webkit-overflow-scrolling: touch; }
+  table { width: 100%; border-collapse: collapse; font-size: 11px; background: #0f172a; white-space: nowrap; }
+  th, td { border: 1px solid #1e293b; padding: 8px 6px; text-align: left; }
+  th { background: #1e293b; color: #38bdf8; font-weight: 700; }
+  td { color: #cbd5e1; }
+  tr:nth-child(even) td { background: rgba(255,255,255,0.02); }
+
+  .cari-grup { display: flex; gap: 6px; align-items: stretch; }
+  .cari-grup input { flex: 1; }
+  .cari-grup button { width: 80px; padding: 0 10px; }
+  .mt-2 { margin-top: 8px; }
+  .text-center { text-align: center; }
+
+  /* FOOTER */
+  .footer { 
+    text-align: center; 
+    font-size: 11px; 
+    color: #64748b; 
+    margin-top: 20px; 
+    padding-bottom: 10px; 
+    user-select: none;
+    -webkit-user-select: none;
+  }
+  .secret-hools {
+    cursor: pointer;
+    color: inherit;
+    font-weight: inherit;
+    touch-action: manipulation;
+  }
+  #headerJudulToko { cursor: default; touch-action: manipulation; }
+  #modalAuthOverlay .auth-card { max-height: calc(100vh - 30px); overflow-y: auto; }
+  #btnAuthLogin:disabled { opacity: .65; cursor: wait; }
+  body.is-owner .badge-role-owner { box-shadow: 0 0 0 2px rgba(52,211,153,.16); }
+
+  .saran-box {
+    position: absolute; left: 0; right: 0; top: 100%; z-index: 99;
+    background: #1e293b; border: 1px solid #3b82f6; border-radius: 8px;
+    max-height: 180px; overflow-y: auto; display: none; box-shadow: 0 8px 16px rgba(0,0,0,0.5);
+  }
+  .saran-item { padding: 10px; border-bottom: 1px solid #334155; cursor: pointer; font-size: 12px; color: #f8fafc; }
+  .saran-item:last-child { border-bottom: none; }
+  .saran-item:hover { background: #2563eb; }
+  .aksi-sm { padding: 5px 8px; font-size: 11px; border-radius: 5px; width: auto; display: inline-block; }
+
+  /* MODAL LOGIN RAHASIA */
+  #modalAuthOverlay {
+    position: fixed;
+    top: 0; left: 0; width: 100vw; height: 100vh;
+    background: rgba(13, 21, 39, 0.94);
+    backdrop-filter: blur(4px);
+    z-index: 999999;
+    display: none;
+    align-items: center; justify-content: center; padding: 15px;
+  }
+  .auth-card {
+    background: #1e293b; border: 1px solid #3b82f6; border-radius: 14px;
+    padding: 20px; width: 100%; max-width: 400px; box-shadow: 0 10px 25px rgba(0,0,0,0.6);
+  }
+
+  @media print {
+    @page { size: portrait; }
+    body { background: #ffffff !important; color: #000000 !important; max-width: 100% !important; padding: 0 !important; }
+    .header, .page, .dashboard, .tab-bar, .back-btn, button, .saran-box, .footer, .cari-grup, .banner-petugas-jaga, #modalAuthOverlay, .kolom-aksi-admin { display: none !important; }
+    .page.active { display: block !important; background: #ffffff !important; box-shadow: none !important; border: none !important; padding: 0 !important; margin: 0 !important; color: #000000 !important; }
+    table { width: 100% !important; border-collapse: collapse !important; background: #ffffff !important; white-space: normal !important; }
+    th, td { border: 1px solid #000000 !important; color: #000000 !important; padding: 5px !important; }
+    th { background: #e2e8f0 !important; color: #000000 !important; }
+  }
+
+  @media (min-width: 768px) {
+    body { padding: 20px; }
+    .dashboard { grid-template-columns: repeat(4, 1fr) !important; gap: 15px; }
+    .menu-card[data-target="cariCepatBarang"] { grid-column: span 4 !important; }
+    .form-group input, .form-group select, .form-group textarea { max-width: 70%; }
+    button { width: auto; }
+    .tombol-baris { flex-direction: row; flex-wrap: wrap; }
+    table { font-size: 12px; white-space: normal; }
+  }
+</style>
+</head>
+<body>
+
+<!-- MODAL LOGIN RAHASIA PEMILIK -->
+<div id="modalAuthOverlay">
+  <div class="auth-card" role="dialog" aria-modal="true" aria-labelledby="authTitle">
+    <div style="text-align: center; margin-bottom: 12px;">
+      <span style="font-size: 32px;">👑</span>
+      <h2 id="authTitle" style="font-size: 16px; color: #38bdf8; margin-top: 6px;">PANEL KENDALI PEMILIK</h2>
+      <p style="font-size: 11px; color: #94a3b8;">Masukkan akun pemilik untuk membuka seluruh kendali kontrol toko.</p>
+    </div>
+    <div class="form-group"><label>Email Pemilik</label><input type="email" id="authEmail" placeholder="stcjombang@gmail.com" style="text-transform:none;"></div>
+    <div class="form-group"><label>Password</label><input type="password" id="authPassword" placeholder="••••••••" style="text-transform:none;"></div>
+    <div id="authNotice" style="color: #f87171; font-size: 11px; line-height: 1.4; margin-bottom: 10px; display: none;"></div>
+    <div class="tombol-baris">
+      <button class="btn-success" id="btnAuthLogin" onclick="prosesLoginFirebase()">Buka Kendali Penuh</button>
+      <button class="btn-danger" onclick="tutupModalLogin()">Batal</button>
+    </div>
+  </div>
+</div>
+
+<!-- HEADER UTAMA -->
+<div class="header">
+  <h1 id="headerJudulToko" title="Akses admin tersembunyi">SIAP TEKNIK COLDSTORAGE</h1>
+  <div class="cabang-edit">
+    <input type="text" id="namaCabang" value="STC SUMOBITO" onchange="simpanPengaturanUmum()" title="Klik untuk mengubah cabang">
+    <div class="alamat-header" id="headerAlamatToko">JL. RAYA JOMBANG - SURABAYA</div>
+  </div>
+</div>
+
+<!-- BANNER STATUS -->
+<div class="banner-petugas-jaga">
+  <div class="banner-petugas-info">
+    <span>🏬 <b>Sistem Operasional:</b></span>
+    <span id="badgeCloudStatus" class="badge-cloud local">🔄 Menghubungkan...</span>
+    <span id="badgeRoleUser" class="badge-role-owner" style="display: none;">👑 MODE PEMILIK</span>
+  </div>
+  <div>
+    <button class="aksi-sm btn-danger" onclick="prosesLogoutFirebase()" id="btnKeluarAuth" style="display:none; font-size:10px; padding:4px 8px;">🚪 Keluar Mode Admin</button>
+  </div>
+</div>
+
+<!-- DASHBOARD MENU: urutan Mode Cabang dan Mode Admin -->
+<div id="dashboard" class="dashboard">
+  <!-- Menu ini sengaja dipertahankan seperti sebelumnya -->
+  <div class="menu-card card-cari-cepat" data-target="cariCepatBarang" id="card_cariCepatBarang"><span class="menu-icon">🔍</span><span>CARI CEPAT BARANG</span></div>
+
+  <!-- MENU MODE CABANG (juga tampil pada Mode Admin) -->
+  <div class="menu-card" data-target="cetakKategori" id="card_cetakKategori" style="background: #048760;"><span class="menu-icon">🖨</span><span>Menu 1: Kategori &amp; Ketersediaan</span></div>
+  <div class="menu-card" data-target="order" id="card_order" style="background: #048760;"><span class="menu-icon">📋</span><span>Menu 2: Order Barang</span></div>
+  <div class="menu-card" data-target="mutasiBarang" id="card_mutasiBarang" style="background: #048760;"><span class="menu-icon">🚚</span><span>Menu 3: Mutasi Barang</span></div>
+  <div class="menu-card" data-target="barangReturn" id="card_barangReturn" style="background: #048760;"><span class="menu-icon">🔄</span><span>Menu 4: Barang Return</span></div>
+
+  <!-- MENU KHUSUS MODE ADMIN -->
+  <div class="menu-card menu-khusus-owner" data-target="inputBarang" id="card_inputBarang" style="background: #048760;"><span class="menu-icon">📦</span><span>Menu 5: Input Data</span></div>
+  <div class="menu-card card-ubah-harga menu-khusus-owner" data-target="ubahHargaData" id="card_ubahHargaData"><span class="menu-icon">✏️</span><span>Menu 6: Ubah Data &amp; Harga</span></div>
+  <div class="menu-card menu-khusus-owner" data-target="laporan" id="card_laporan" style="background: #048760;"><span class="menu-icon">📊</span><span>Menu 7: Laporan Semua Data Barang</span></div>
+  <div class="menu-card menu-khusus-owner" data-target="pindahKategori" id="card_pindahKategori" style="background: #048760;"><span class="menu-icon">🔀</span><span>Menu 8: Pindah Kategori</span></div>
+  <div class="menu-card menu-khusus-owner" data-target="penjualanHariIni" id="card_penjualanHariIni" style="background: #048760;"><span class="menu-icon">💰</span><span>Menu 9: Penjualan Hari Ini</span></div>
+  <div class="menu-card card-angsuran menu-khusus-owner" data-target="angsuranData" id="card_angsuranData"><span class="menu-icon">📝</span><span>Menu 10: Data Angsuran</span></div>
+  <div class="menu-card card-penjaga menu-khusus-owner" data-target="penjagaToko" id="card_penjagaToko"><span class="menu-icon">🧑‍💼</span><span>Menu 11: Penjaga Toko</span></div>
+  <div class="menu-card card-pengaturan menu-khusus-owner" data-target="pengaturan" id="card_pengaturan"><span class="menu-icon">⚙️</span><span>Menu 12: Pengaturan</span></div>
+  <div class="menu-card card-pulihkan menu-khusus-owner" data-target="pulihkanData" id="card_pulihkanData"><span class="menu-icon">📂</span><span>Menu 13: Pulihkan Data</span></div>
+  <div class="menu-card card-backup menu-khusus-owner" data-target="backupData" id="card_backupData"><span class="menu-icon">💾</span><span>Menu 14: Backup Data</span></div>
+</div>
+  <!-- CARI CEPAT BARANG -->
+<div id="cariCepatBarang" class="page" data-index="0">
+  <div class="nav-header-bar"><div class="back-btn" onclick="kembali()">← Menu Utama</div></div>
+  <h2>CARI CEPAT BARANG & CEK HARGA</h2>
+  <div class="form-group"><label>Filter Kategori</label><select id="ccFilterKat" onchange="cariCepatProses()"></select></div>
+  <div class="form-group"><label>Kata Kunci / Nominal</label><input id="ccKeyword" placeholder="Ketik nama, kode, atau harga..." oninput="cariCepatProses()"></div>
+  <div style="display:flex; gap:6px; margin-bottom:10px;">
+    <div class="form-group" style="flex:1;"><label>Harga Min</label><input id="ccHargaMin" placeholder="0" oninput="fAngka(this); cariCepatProses();"></div>
+    <div class="form-group" style="flex:1;"><label>Harga Max</label><input id="ccHargaMax" placeholder="Tanpa batas" oninput="fAngka(this); cariCepatProses();"></div>
+  </div>
+  <button class="btn-danger mt-2" onclick="resetCariCepat()">🔄 Reset Pencarian</button>
+  <div class="table-wrap mt-2">
+    <table>
+      <thead><tr><th>Kode</th><th>Nama</th><th>Kategori</th><th>Satuan</th><th>Meter</th><th>Roll</th><th>Ket</th><th class="kolom-aksi-admin">Aksi</th></tr></thead>
+      <tbody id="tabelCariCepat"></tbody>
+    </table>
+  </div>
+</div>
+
+<!-- MENU 7: KATEGORI & KETERSEDIAAN -->
+<div id="cetakKategori" class="page" data-index="1">
+  <div class="nav-header-bar"><div class="back-btn" onclick="kembali()">← Menu Utama</div></div>
+  <h2>Menu 1: Kategori & Ketersediaan Barang</h2>
+  <div class="form-group"><label>Pilih Kategori</label><select id="pilihKatMenu7" onchange="tampilTabelMenu7()"></select></div>
+  <div class="tombol-baris mt-2">
+    <button class="btn-success" onclick="cetakPdfKategori()">🖨️ Cetak PDF Kategori</button>
+    <button class="btn-warning" onclick="cetakLangsungHTML('LAPORAN BARANG PER KATEGORI', 'tabelMenu7Container')">🖨️ Cetak Langsung</button>
+  </div>
+  <div class="table-wrap mt-2" id="tabelMenu7Container">
+    <h4 id="judulTabelMenu7" style="padding: 6px; color:#38bdf8; font-size: 13px;">Data Barang</h4>
+    <table>
+      <thead><tr><th>Kode</th><th>Nama</th><th>Satuan</th><th>Meter</th><th>Roll</th><th>Ket</th><th class="kolom-aksi-admin">Aksi</th></tr></thead>
+      <tbody id="tabelMenu7"></tbody>
+    </table>
+  </div>
+</div>
+
+<!-- MENU 2: ORDER BARANG & KABEL -->
+<div id="order" class="page" data-index="2">
+  <div class="nav-header-bar"><div class="back-btn" onclick="kembali()">← Menu Utama</div></div>
+  <h2>Menu 2: Order Barang & Kabel</h2>
+  <div class="tab-bar">
+    <div class="tab active" data-tab="buatOrder">Order Manual (Barang)</div>
+    <div class="tab" data-tab="orderOtomatis">🔌 Order Kabel</div>
+  </div>
+  
+  <!-- TAB 1: ORDER MANUAL -->
+  <div class="tab-content active" id="buatOrder">
+    <div class="form-group">
+      <label>Pilih Toko Pemesan</label>
+      <select id="ordToko">
+        <option value="STC SUMOBITO">STC SUMOBITO</option>
+        <option value="STC PETERONGAN">STC PETERONGAN</option>
+      </select>
+    </div>
+    <div class="form-group">
+      <label>Pilih Kategori Barang</label>
+      <select id="ordKategori" onchange="filterOrdByKategori()"></select>
+    </div>
+    <div class="form-group"><label>Cari Nama Barang</label>
+      <div class="cari-grup">
+        <input id="ordNama" oninput="prediksiNama(this,'saranOrd','pilihOrd')" placeholder="Ketik nama...">
+        <button class="btn-primary" onclick="cariOrdNama()">Cari</button>
+      </div>
+      <div id="saranOrd" class="saran-box"></div>
+    </div>
+    <div id="infoOrd"></div>
+    <div class="form-group"><label>Keterangan Barang</label><input id="ordKet" placeholder="Contoh: 5 pcs / 10 dos"></div>
+    <div class="form-group"><label>Keterangan Stok</label><input id="ordStok" value="0"></div>
+    <button class="btn-primary" id="btnTambahOrder" onclick="tambahOrder()">Tambah ke Daftar Order Barang</button>
+    
+    <div class="table-wrap mt-2" id="tabelOrderBarangContainer" style="border: 1px solid #3b82f6; border-radius: 8px;">
+      <h4 style="padding: 8px; color:#ffffff; background: #1d4ed8; font-size: 13px; font-weight:700;">
+        📦 DAFTAR ORDER BARANG UMUM
+      </h4>
+      <table>
+        <thead>
+          <tr><th>Pemesan</th><th>Kode</th><th>Nama Barang</th><th>Jumlah / Keterangan</th><th>Stok</th><th>Aksi</th></tr>
+        </thead>
+        <tbody id="tabelOrderBarang"></tbody>
+      </table>
+    </div>
+
+    <div style="background:#0f172a; border:1px solid #334155; border-radius:8px; padding:12px; margin-top:14px;">
+      <h4 style="color:#38bdf8; font-size:13px; margin-bottom:8px;">📄 Cetak Surat Permintaan Order Resmi (Barang)</h4>
+      <div class="form-group" style="margin-bottom:8px;">
+        <label>Filter Toko untuk Cetak Surat PDF</label>
+        <select id="filterCetakOrdTokoBarang">
+          <option value="SEMUA">-- CETAK SEMUA PESANAN CABANG --</option>
+          <option value="STC SUMOBITO">STC SUMOBITO</option>
+          <option value="STC PETERONGAN">STC PETERONGAN</option>
+        </select>
+      </div>
+      <div class="tombol-baris">
+        <button class="btn-success" onclick="cetakOrderPDF('barang')">🖨 Cetak Surat Order PDF (Resmi)</button>
+        <button class="btn-warning" onclick="cetakLangsungHTML('SURAT PERMINTAAN ORDER BARANG', 'tabelOrderBarangContainer')">🖨️ Cetak Langsung</button>
+        <button class="btn-danger kolom-aksi-admin" onclick="kosongkanTabelOrder('barang')">🗑 Kosongkan Order Barang</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- TAB 2: ORDER KABEL -->
+  <div class="tab-content" id="orderOtomatis">
+    <div class="info-box">🔌 Generator Order Khusus Kabel: Hitung roll dan meter otomatis, lalu simpan ke tabel kabel.</div>
+    <div class="form-group">
+      <label>Pilih Toko / Proyek Kabel</label>
+      <select id="ordKabToko">
+        <option value="STC SUMOBITO">STC SUMOBITO</option>
+        <option value="STC PETERONGAN">STC PETERONGAN</option>
+      </select>
+    </div>
+    <div class="form-group"><label>Cari Kode Kabel</label>
+      <div class="cari-grup"><input id="ordKabKode"><button class="btn-primary" onclick="cariOrdKabKode()">Cari</button></div>
+    </div>
+    <div class="form-group"><label>Cari Nama Kabel</label>
+      <div class="cari-grup">
+        <input id="ordKabNama" oninput="prediksiNamaKabel(this)" placeholder="Ketik nama kabel...">
+        <button class="btn-primary" onclick="cariOrdKabNama()">Cari</button>
+      </div>
+      <div id="saranOrdKab" class="saran-box"></div>
+    </div>
+    <div id="infoOrdKab"></div>
+
+    <div class="form-group">
+      <label>Metode Kebutuhan Kabel</label>
+      <select id="ordKabMode" onchange="toggleModeOrderKabel()">
+        <option value="meter">Berdasarkan Total Meter</option>
+        <option value="roll">Berdasarkan Roll & Sisa Meter</option>
+      </select>
+    </div>
+
+    <div id="groupModeMeter" class="form-group">
+      <label>Panjang Total (Meter)</label>
+      <input id="ordKabMeter" placeholder="Contoh: 150" oninput="fAngka(this); hitungEstimasiKabel();">
+    </div>
+
+    <div id="groupModeRoll" class="form-group" style="display:none;">
+      <div style="display:flex; gap:6px;">
+        <div style="flex:1;"><label>Jumlah Roll</label><input id="ordKabJmlRoll" value="0" oninput="fAngka(this); hitungEstimasiKabel();"></div>
+        <div style="flex:1;"><label>Isi/Roll</label><input id="ordKabIsiRoll" value="50" oninput="fAngka(this); hitungEstimasiKabel();"></div>
+        <div style="flex:1;"><label>Sisa (Meter)</label><input id="ordKabSisaMeter" value="0" oninput="fAngka(this); hitungEstimasiKabel();"></div>
+      </div>
+    </div>
+
+    <div class="form-group">
+      <label>Hasil Kalkulasi Otomatis</label>
+      <input id="ordKabHasilRangkuman" readonly style="background:#0f172a; color:#34d399; font-weight:700;" placeholder="Otomatis terhitung...">
+    </div>
+    <div class="form-group"><label>Catatan Tambahan (Opsional)</label><input id="ordKabCatatan" placeholder="Contoh: SNI / Potong 50m"></div>
+    <div class="form-group"><label>Keterangan Stok</label><input id="ordKabStok" placeholder="Contoh: Ready / Habis" value="0"></div>
+
+    <button class="btn-success" onclick="tambahOrderKabelOtomatis()">➕ Masukkan ke Daftar Order Kabel</button>
+
+    <div class="table-wrap mt-2" id="tabelOrderKabelContainer" style="border: 1px solid #059669; border-radius: 8px; margin-top: 15px;">
+      <h4 style="padding: 8px; color:#ffffff; background: #047857; font-size: 13px; font-weight:700;">
+        🔌 DAFTAR ORDER KHUSUS KABEL (ROLL & METER)
+      </h4>
+      <table>
+        <thead>
+          <tr><th>Pemesan</th><th>Kode</th><th>Nama Kabel</th><th>Rincian Roll & Meter</th><th>Stok</th><th>Aksi</th></tr>
+        </thead>
+        <tbody id="tabelOrderKabel"></tbody>
+      </table>
+    </div>
+
+    <div style="background:#0f172a; border:1px solid #334155; border-radius:8px; padding:12px; margin-top:14px;">
+      <h4 style="color:#38bdf8; font-size:13px; margin-bottom:8px;">📄 Cetak Surat Permintaan Order Resmi (Kabel)</h4>
+      <div class="form-group" style="margin-bottom:8px;">
+        <label>Filter Toko untuk Cetak Surat PDF</label>
+        <select id="filterCetakOrdTokoKabel">
+          <option value="SEMUA">-- CETAK SEMUA PESANAN CABANG --</option>
+          <option value="STC SUMOBITO">STC SUMOBITO</option>
+          <option value="STC PETERONGAN">STC PETERONGAN</option>
+        </select>
+      </div>
+      <div class="tombol-baris">
+        <button class="btn-success" onclick="cetakOrderPDF('kabel')">🖨 Cetak Surat Order PDF (Resmi)</button>
+        <button class="btn-warning" onclick="cetakLangsungHTML('SURAT PERMINTAAN ORDER KABEL', 'tabelOrderKabelContainer')">🖨️ Cetak Langsung</button>
+        <button class="btn-danger kolom-aksi-admin" onclick="kosongkanTabelOrder('kabel')">🗑 Kosongkan Order Kabel</button>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- MENU 4: MUTASI BARANG -->
+<div id="mutasiBarang" class="page" data-index="3">
+  <div class="nav-header-bar"><div class="back-btn" onclick="kembali()">← Menu Utama</div></div>
+  <h2>Menu 3: Mutasi Barang Antar-Cabang</h2>
+  <div class="form-group"><label>Toko Asal</label><input id="mutAsal" value="SUMOBITO" readonly style="background:#0f172a; color:#94a3b8;"></div>
+  <button class="btn-warning mt-2" onclick="tukarPosisiMutasi()">⇄ Tukar Asal & Tujuan</button>
+  <div class="form-group mt-2"><label>Toko Cabang Tujuan</label><input id="mutTujuan" value="PETERONGAN" readonly style="background:#0f172a; color:#94a3b8;"></div>
+  
+  <div style="border-top:1px dashed #334155; margin:12px 0; padding-top:10px;">
+    <div class="form-group"><label>Cari Kode Barang</label>
+      <div class="cari-grup"><input id="mutKode"><button class="btn-primary" onclick="cariMutKode()">Cari</button></div>
+    </div>
+    <div class="form-group"><label>Cari Nama Barang</label>
+      <div class="cari-grup">
+        <input id="mutNama" oninput="prediksiNama(this,'saranMut','pilihMut')" placeholder="Ketik nama...">
+        <button class="btn-primary" onclick="cariMutNama()">Cari</button>
+      </div>
+      <div id="saranMut" class="saran-box"></div>
+    </div>
+    <div id="infoMut"></div>
+    <div class="form-group"><label>Jumlah / Satuan Transfer</label><input id="mutQty" placeholder="Contoh: 10 Roll / 5 Satuan"></div>
+    <div class="form-group"><label>Keterangan / Catatan Mutasi</label><input id="mutKet" placeholder="Contoh: Barang untuk proyek baru / Bagus"></div>
+    <button class="btn-primary" id="btnTambahMutasi" onclick="tambahMutasiItem()">+ Tambah ke Transfer</button>
+  </div>
+
+  <div class="table-wrap mt-2" id="tabelMutasiContainer">
+    <h4 style="padding: 6px; color:#38bdf8; font-size: 13px;">Daftar Transfer</h4>
+    <table>
+      <thead><tr><th>Kode</th><th>Nama</th><th>Jumlah</th><th>Ket</th><th class="kolom-aksi-admin">Aksi</th></tr></thead>
+      <tbody id="tabelMutasi"></tbody>
+    </table>
+  </div>
+
+  <div class="tombol-baris mt-2">
+    <button class="btn-success" onclick="cetakSuratJalanPDF()">🖨 Cetak PDF Surat Jalan</button>
+    <button class="btn-warning" onclick="cetakLangsungHTML('SURAT JALAN MUTASI BARANG', 'tabelMutasiContainer')">🖨️ Cetak Langsung</button>
+    <button class="btn-danger kolom-aksi-admin" onclick="kosongkanMutasi()">🗑 Kosongkan Mutasi</button>
+  </div>
+</div>
+
+<!-- MENU 6: BARANG RETURN -->
+<div id="barangReturn" class="page" data-index="4">
+  <div class="nav-header-bar"><div class="back-btn" onclick="kembali()">← Menu Utama</div></div>
+  <h2>Menu 4: Pengembalian Barang (Return)</h2>
+  <div class="form-group"><label>Toko Asal</label><input id="retAsal" value="PETERONGAN" readonly style="background:#0f172a; color:#94a3b8;"></div>
+  <button class="btn-warning mt-2" onclick="tukarPosisiReturn()">⇄ Tukar Asal & Tujuan</button>
+  <div class="form-group mt-2"><label>Toko Cabang Tujuan</label><input id="retTujuan" value="SUMOBITO" readonly style="background:#0f172a; color:#94a3b8;"></div>
+
+  <div style="border-top:1px dashed #334155; margin:12px 0; padding-top:10px;">
+    <div class="form-group"><label>Cari Kode Barang</label>
+      <div class="cari-grup"><input id="retKode"><button class="btn-primary" onclick="cariRetKode()">Cari</button></div>
+    </div>
+    <div class="form-group"><label>Cari Nama Barang</label>
+      <div class="cari-grup">
+        <input id="retNama" oninput="prediksiNama(this,'saranRet','pilihRet')" placeholder="Ketik nama...">
+        <button class="btn-primary" onclick="cariRetNama()">Cari</button>
+      </div>
+      <div id="saranRet" class="saran-box"></div>
+    </div>
+    <div id="infoRet"></div>
+    <div class="form-group"><label>Jumlah Return</label><input id="retQty" placeholder="Contoh: 1 Satuan"></div>
+    <div class="form-group"><label>Alasan Return</label><input id="retAlasan" placeholder="Contoh: Rusak / Cacat"></div>
+    <button class="btn-primary" id="btnTambahReturn" onclick="tambahReturn()">+ Tambah ke Return</button>
+  </div>
+
+  <div class="table-wrap mt-2" id="tabelReturnContainer">
+    <h4 style="padding: 6px; color:#38bdf8; font-size: 13px;">Daftar Return</h4>
+    <table>
+      <thead><tr><th>Toko Asal</th><th>Kode</th><th>Nama</th><th>Jml</th><th>Alasan</th><th class="kolom-aksi-admin">Aksi</th></tr></thead>
+      <tbody id="tabelReturn"></tbody>
+    </table>
+  </div>
+
+  <div class="tombol-baris mt-2">
+    <button class="btn-success" onclick="cetakReturnPDF()">🖨 Cetak PDF Return</button>
+    <button class="btn-warning" onclick="cetakLangsungHTML('LAPORAN RETURN', 'tabelReturnContainer')">🖨 Cetak Langsung</button>
+    <button class="btn-danger kolom-aksi-admin" onclick="kosongkanReturn()">🗑 Kosongkan Return</button>
+  </div>
+</div>
+
+<!-- MENU-MENU KHUSUS PEMILIK -->
+<div id="inputBarang" class="page" data-index="5">
+  <div class="nav-header-bar"><div class="back-btn" onclick="kembali()">← Menu Utama</div></div>
+  <h2>Menu 5: Input Data Barang (Admin)</h2>
+  <div class="tab-bar"><div class="tab active" data-tab="kategori">1. Kategori</div><div class="tab" data-tab="input">2. Input Barang</div></div>
+  <div class="tab-content active" id="kategori">
+    <div class="form-group"><label>Nama Kategori</label><input type="text" id="namaKategori" placeholder="Contoh: LAMPU, KABEL"></div>
+    <button class="btn-primary" onclick="simpanKategori()">Simpan Kategori</button>
+    <div id="daftarKategori" class="mt-2"></div>
+  </div>
+  <div class="tab-content" id="input">
+    <div class="form-group"><label>Kode Barang</label><input id="inKode"></div>
+    <div class="form-group"><label>Nama Barang</label><input id="inNama"></div>
+    <div class="form-group"><label>Kategori</label><select id="inKategori" onchange="toggleJenisKabelInput()"></select></div>
+    <div class="form-group" id="groupJenisKabel" style="display:none;">
+      <label>Jenis Kabel</label>
+      <select id="inJenisKabel">
+        <option value="">-- Pilih Jenis Kabel --</option>
+        <option value="NYA">NYA (Kabel Tunggal / Kawat)</option>
+        <option value="NYM">NYM (Kabel Isi Dua, Tiga, atau Empat Putih)</option>
+        <option value="NYY">NYY (Kabel Hitam / Tanam)</option>
+        <option value="NYAF">NYAF (Kabel Serabut Tunggal)</option>
+        <option value="NYMHY">NYMHY (Kabel Serabut Putih / Hitam Bulat)</option>
+      </select>
+    </div>
+    <div class="form-group" id="groupUkuranKabel" style="display:none;">
+      <label>Ukuran Kabel</label>
+      <select id="inUkuranKabel">
+        <option value="">-- Pilih Ukuran Kabel --</option>
+        <option value="1x0.75">1x0.75</option>
+        <option value="1x1.5">1x1.5</option>
+        <option value="1x2.5">1x2.5</option>
+        <option value="2x0.75">2x0.75</option>
+        <option value="2x1.5">2x1.5</option>
+        <option value="2x2.5">2x2.5</option>
+        <option value="3x0.75">3x0.75</option>
+        <option value="3x1.5">3x1.5</option>
+        <option value="3x2.5">3x2.5</option>
+      </select>
+    </div>
+    <div class="form-group"><label>Harga/Satuan (Rp)</label><input id="inHarga" placeholder="0" oninput="fAngka(this)"></div>
+    <div class="form-group"><label>Harga per Meter (Rp)</label><input id="inHargaMeter" placeholder="0" oninput="fAngka(this)"></div>
+    <div class="form-group"><label>Harga per Roll (Rp)</label><input id="inHargaRoll" placeholder="0" oninput="fAngka(this)"></div>
+    <div class="form-group"><label>Keterangan</label><input id="inKet"></div>
+    <button class="btn-primary" onclick="simpanBarang()">Simpan Data Barang</button>
+    <div class="table-wrap mt-2"><table><thead><tr><th>Kode</th><th>Nama</th><th>Kategori</th><th>Jenis Kabel</th><th>Ukuran Kabel</th><th>Satuan</th><th>Meter</th><th>Roll</th><th>Ket</th><th>Aksi</th></tr></thead><tbody id="tabelInput"></tbody></table></div>
+    <button class="btn-danger mt-2" onclick="kosongkanInputHariIni()">🗑️ Bersihkan Tampilan Input Hari Ini</button>
+  </div>
+</div>
+
+<div id="ubahHargaData" class="page" data-index="6">
+  <div class="nav-header-bar"><div class="back-btn" onclick="kembali()">← Menu Utama</div></div>
+  <h2>Menu 6: Ubah Harga & Data Barang (Admin)</h2>
+  <div class="form-group"><label>Pilihan Kategori</label><select id="uhdKategori" onchange="filterUhdByKategori()"></select></div>
+  <div class="form-group"><label>Cari Barang (Kode atau Nama)</label><div class="cari-grup"><input id="uhdNama" placeholder="Masukkan kode atau nama barang..." oninput="prediksiNama(this,'saranUhd','pilihUhd')"><button class="btn-primary" onclick="cariUhdNama()">Cari</button></div><div id="saranUhd" class="saran-box"></div></div>
+  <div id="formEditHargaData" style="display:block; margin-top:12px; padding:12px; border:1px solid #334155; border-radius:10px;">
+    <h3 style="margin:0 0 10px; color:#38bdf8;">Form Ubah Data & Harga Barang</h3>
+    <div class="form-group"><label>Kode Barang</label><input id="editUhdKode" readonly style="color:#94a3b8;" placeholder="Pilih barang terlebih dahulu"></div>
+    <div class="form-group"><label>Nama Barang</label><input id="editUhdNama" placeholder="Nama barang"></div>
+    <div class="form-group"><label>Kategori</label><select id="editUhdKategori" onchange="toggleJenisKabelEdit()"></select></div>
+    <div class="form-group" id="groupEditJenisKabel" style="display:none;">
+      <label>Jenis Kabel</label>
+      <select id="editUhdJenisKabel">
+        <option value="">-- Pilih Jenis Kabel --</option>
+        <option value="NYA">NYA (Kabel Tunggal / Kawat)</option>
+        <option value="NYM">NYM (Kabel Isi Dua, Tiga, atau Empat Putih)</option>
+        <option value="NYY">NYY (Kabel Hitam / Tanam)</option>
+        <option value="NYAF">NYAF (Kabel Serabut Tunggal)</option>
+        <option value="NYMHY">NYMHY (Kabel Serabut Putih / Hitam Bulat)</option>
+      </select>
+    </div>
+    <div class="form-group" id="groupEditUkuranKabel" style="display:none;">
+      <label>Ukuran Kabel</label>
+      <select id="editUhdUkuranKabel">
+        <option value="">-- Pilih Ukuran Kabel --</option>
+        <option value="1x0.75">1x0.75</option>
+        <option value="1x1.5">1x1.5</option>
+        <option value="1x2.5">1x2.5</option>
+        <option value="2x0.75">2x0.75</option>
+        <option value="2x1.5">2x1.5</option>
+        <option value="2x2.5">2x2.5</option>
+        <option value="3x0.75">3x0.75</option>
+        <option value="3x1.5">3x1.5</option>
+        <option value="3x2.5">3x2.5</option>
+      </select>
+    </div>
+    <div class="form-group"><label>Harga Satuan (Rp)</label><input id="editUhdHargaJual" inputmode="numeric" placeholder="0" oninput="fAngka(this)"></div>
+    <div class="form-group"><label>Harga Meter (Rp)</label><input id="editUhdHargaMeter" inputmode="numeric" placeholder="0" oninput="fAngka(this)"></div>
+    <div class="form-group"><label>Harga Roll (Rp)</label><input id="editUhdHargaRoll" inputmode="numeric" placeholder="0" oninput="fAngka(this)"></div>
+    <div class="form-group"><label>Keterangan</label><textarea id="editUhdKet" rows="3" placeholder="Masukkan keterangan barang..."></textarea></div>
+    <div class="tombol-baris mt-2">
+      <button class="btn-success" onclick="simpanUbahHargaData()">💾 Simpan Perubahan</button>
+      <button class="btn-danger" onclick="hapusBarangDariEdit()">🗑 Hapus Barang Ini Permanen</button>
+    </div>
+  </div>
+  <div style="margin-top:18px;padding-top:14px;border-top:2px solid #334155;">
+    <h3 style="color:#38bdf8;margin:0 0 10px;">Daftar Barang — Pilih untuk Mengubah</h3>
+    <div class="form-group"><label>Cari cepat kode / nama</label><input id="daftarUhdCari" placeholder="Ketik kode atau nama barang..." oninput="tampilDaftarUhd()"></div>
+    <div class="form-group"><label>Filter kategori daftar</label><select id="daftarUhdKategori" onchange="tampilDaftarUhd()"><option value="">Semua Kategori</option></select></div>
+    <div id="daftarUhdInfo" class="caption" style="margin:6px 0;color:#94a3b8;"></div>
+    <div class="table-wrap"><table><thead><tr><th>Kode</th><th>Nama Barang</th><th>Kategori</th><th>Jenis Kabel</th><th>Ukuran Kabel</th><th>Satuan</th><th>Meter</th><th>Roll</th><th>Aksi</th></tr></thead><tbody id="tabelDaftarUhd"></tbody></table></div>
+  </div>
+</div>
+
+<div id="laporan" class="page" data-index="7">
+  <div class="nav-header-bar"><div class="back-btn" onclick="kembali()">← Menu Utama</div></div>
+  <h2>Menu 7: Laporan Semua Barang (Admin)</h2>
+  <div class="form-group"><select id="filterKat" onchange="tampilLaporan()"></select></div>
+  <div class="tombol-baris mt-2"><button class="btn-primary" onclick="tampilLaporan()">Segarkan Tampilan</button><button class="btn-danger dark" onclick="hapusSemuaBarang()">🗑 Hapus Semua Data Barang</button></div>
+  <div id="hasilLaporan" class="table-wrap mt-2"></div>
+</div>
+
+<div id="pindahKategori" class="page" data-index="8">
+  <div class="nav-header-bar"><div class="back-btn" onclick="kembali()">← Menu Utama</div></div>
+  <h2>Menu 8: Pindah Kategori Massal (Admin)</h2>
+  <div class="info-box" style="background:#1e3a8a33;border:1px solid #6387e8;border-radius:12px;padding:12px;margin-bottom:14px;color:#bfdbfe;">
+    💡 Centang barang yang ingin dipindahkan, lalu pilih kategori tujuan baru di bawah.
+  </div>
+  <div class="form-group">
+    <label>Filter Kategori Saat Ini</label>
+    <select id="pkFilterKat" onchange="muatTabelPindahKategori()">
+      <option value="">-- SEMUA KATEGORI --</option>
+    </select>
+  </div>
+  <div class="form-group">
+    <label>Cari Barang</label>
+    <input type="text" id="pkFilterKeyword" placeholder="Cari nama/kode..." oninput="muatTabelPindahKategori()">
+  </div>
+  <div style="display:flex; flex-direction:column; gap:8px; margin-bottom:10px;">
+    <button class="btn-primary" onclick="toggleCentangSemuaPK()">☑ Pilih Semua</button>
+    <button class="btn-warning" onclick="batalCentangSemuaPK()">☐ Batalkan Pilihan</button>
+  </div>
+  <div class="table-wrap mt-2">
+    <table>
+      <thead><tr><th style="width:40px; text-align:center;">Pilih</th><th>Kode</th><th>Nama</th><th>Kategori Saat Ini</th></tr></thead>
+      <tbody id="tabelPindahKategoriMulti"></tbody>
+    </table>
+  </div>
+  <div class="form-group mt-2"><label>Pilih Kategori Tujuan Baru</label><select id="pkKategoriTujuanMassal"></select></div>
+  <button class="btn-success mt-2" onclick="simpanPindahKategoriMassal()">🔀 Pindahkan Barang Terpilih</button>
+</div>
+
+<!-- MENU 9: PENJUALAN -->
+<div id="penjualanHariIni" class="page" data-index="9">
+  <div class="nav-header-bar"><div class="back-btn" onclick="kembali()">← Menu Utama</div></div>
+  <h2>Menu 9: Penjualan Hari Ini (Admin)</h2>
+  <div class="form-group"><label>Cari Kode</label><div class="cari-grup"><input id="jualKode"><button class="btn-primary" onclick="cariJualKode()">Cari</button></div></div>
+  <div class="form-group"><label>Cari Nama</label><div class="cari-grup"><input id="jualNama" oninput="prediksiNama(this,'saranJual','pilihJual')" placeholder="Ketik nama..."><button class="btn-primary" onclick="cariJualNama()">Cari</button></div><div id="saranJual" class="saran-box"></div></div>
+  <div class="form-group"><label>Qty</label><input id="jualQty" value="1" oninput="fAngka(this); hitungSubtotalJual();"></div>
+  <div class="form-group"><label>Subtotal (Rp)</label><input id="jualSubtotal" placeholder="0" oninput="fAngka(this)"></div>
+  <button class="btn-primary" onclick="tambahPenjualanHariIni()">+ Tambah ke Penjualan</button>
+
+  <div style="background:#0f172a; border:1px solid #334155; border-radius:8px; padding:12px; margin-top:14px; display:flex; justify-content:space-between; align-items:center;">
+    <span style="font-size:13px; font-weight:700;">Total Omzet Kasir:</span>
+    <span id="displayTotalPenjualan" style="font-size:16px; font-weight:800; color:#34d399;">Rp 0</span>
+  </div>
+
+  <div class="table-wrap mt-2"><table><thead><tr><th>Kode</th><th>Nama</th><th>Qty</th><th>Subtotal</th><th>Aksi</th></tr></thead><tbody id="tabelPenjualanHariIni"></tbody></table></div>
+  <button class="btn-danger mt-2" onclick="kosongkanPenjualanHariIni()">🗑️ Bersihkan Penjualan Hari Ini</button>
+</div>
+
+<!-- MENU 10: DATA ANGSURAN -->
+<div id="angsuranData" class="page" data-index="10">
+  <div class="nav-header-bar"><div class="back-btn" onclick="kembali()">← Menu Utama</div></div>
+  <h2>Menu 10: Data Pembayaran Angsuran (Admin)</h2>
+  <div class="form-group"><label>Nama Pembeli</label><input id="angPembeli"></div>
+  <div class="form-group"><label>Barang / Layanan</label><input id="angBarangNama"></div>
+  <div class="form-group"><label>Total Deal (Rp)</label><input id="angTotalHarga" placeholder="0" oninput="fAngka(this); hitungSisaAngsuranAwal();"></div>
+  <div class="form-group"><label>DP / Uang Muka (Rp)</label><input id="angUangMuka" placeholder="0" oninput="fAngka(this); hitungSisaAngsuranAwal();"></div>
+  <div class="form-group"><label>Sisa Angsuran Awal (Rp)</label><input id="angSisaAwal" readonly style="background:#0f172a; color:#38bdf8; font-weight:700;" placeholder="0"></div>
+  <button class="btn-primary mt-2" onclick="simpanAngsuranBaru()">💾 Simpan Data Angsuran</button>
+  
+  <div class="table-wrap mt-2">
+    <table>
+      <thead>
+        <tr><th>No</th><th>Tanggal</th><th>Pembeli</th><th>Barang</th><th>Total</th><th>DP</th><th>Sisa</th><th>Status</th><th>Aksi</th></tr>
+      </thead>
+      <tbody id="tabelAngsuranBody"></tbody>
+    </table>
+  </div>
+</div>
+
+<div id="pengaturan" class="page" data-index="12">
+  <div class="nav-header-bar"><div class="back-btn" onclick="kembali()">← Menu Utama</div></div>
+  <h2>Menu 12: Pengaturan Sistem (Admin)</h2>
+  <div class="form-group"><label>Nama Toko Utama</label><input id="setNamaToko"></div>
+  <div class="form-group"><label>Nama Cabang</label><input id="setNamaCabang"></div>
+  <div class="form-group"><label>Alamat Toko</label><textarea id="setAlamatToko" rows="2"></textarea></div>
+  <button class="btn-success mt-2" onclick="simpanPengaturanLengkap()">💾 Simpan Semua Pengaturan</button>
+
+</div>
+
+<div id="penjagaToko" class="page" data-index="11">
+  <div class="nav-header-bar"><div class="back-btn" onclick="kembali()">← Menu Utama</div></div>
+  <h2>Menu 11: Data Penjaga Toko (Admin)</h2>
+  <div class="form-group"><label>Shift</label><select id="pilihShiftPenjaga"><option value="PAGI">PAGI</option><option value="MID">MID</option><option value="SIANG">SIANG</option></select></div>
+  <div class="form-group"><label>Nama Karyawan</label><select id="pilihNamaPenjaga"><option value="HOLIGAS">HOLIGAS</option><option value="HERU">HERU</option><option value="ANDRI">ANDRI</option></select></div>
+  <button class="btn-success mt-2" onclick="simpanPenjagaAktif()">💾 Tetapkan Petugas Jaga</button>
+</div>
+
+<div id="pulihkanData" class="page" data-index="13">
+  <div class="nav-header-bar"><div class="back-btn" onclick="kembali()">← Menu Utama</div></div>
+  <h2>Menu 13: Pemulihan Data (Admin)</h2>
+  <div class="info-box" style="margin-bottom:12px">🛡️ Sebelum pemulihan, aplikasi akan membuat file snapshot dari data yang sedang aktif. Simpan file tersebut jika Anda perlu membatalkan pemulihan.</div>
+  <input type="file" id="fileBackup" accept=".json,application/json" style="display:none;" onchange="prosesPulih(event)">
+  <button class="btn-success mt-2" onclick="document.getElementById('fileBackup').click()">📂 Pilih File Backup (.json) & Pulihkan</button>
+</div>
+
+<div id="backupData" class="page" data-index="14">
+  <div class="nav-header-bar"><div class="back-btn" onclick="kembali()">← Menu Utama</div></div>
+  <h2>Menu 14: Backup Data (Admin)</h2>
+  <div class="info-box" style="margin-bottom:12px">💾 Buat dan simpan file cadangan di perangkat Anda. Untuk versi gratis ini, backup harian belum berjalan otomatis saat website tertutup. Simpan backup secara berkala di lokasi aman, bukan hanya di HP yang sama.</div>
+  <button class="btn-primary mt-2" onclick="unduhBackup()">💾 Unduh File Backup Data</button>
+  <p id="backupInfo" class="muted mt-2">Backup mencakup data operasional yang dimuat oleh aplikasi.</p>
+</div>
+
+<!-- FOOTER DENGAN PEMICU RAHASIA DI KATA "Hool's" -->
+<div class="footer">
+  Script HTML System by <span class="secret-hools" onclick="ketukanRahasiaHools()">Hool's</span> &copy; 2026
+</div>
+
+<script>
+/* ================================================================
+   KONFIGURASI FIREBASE CLOUD (STC SUMOBITO)
+   ================================================================ */
+const firebaseConfig = {
+  apiKey: "AIzaSyBTQIaSq4tZXKJJDjHhJCCCRjKAXkMXuWo",
+  authDomain: "stc-sumobito.firebaseapp.com",
+  projectId: "stc-sumobito",
+  storageBucket: "stc-sumobito.firebasestorage.app",
+  messagingSenderId: "441800488590",
+  appId: "1:441800488590:web:6aeabc53a8b7429ec27bdf"
+};
+
+// WAJIB DIISI setelah akun OWNER dibuat di Firebase Authentication.
+// Ambil UID akun pemilik dari Firebase Console > Authentication > Users.
+const OWNER_UID = '5ZQ0VcSeK6XqaYr3ZVmC60eUcO43';
+
+let auth = null;
+let db = null;
+let unsubs = [];
+let statusRoleAktif = 'CABANG';
+let currentAuthUser = null;
+
+let dbKat = [];
+let dbBrg = [];
+let dbOrder = [];
+let dbMutasi = [];
+let dbReturn = [];
+let inputHariIni = [];
+let dbPenjualanHariIni = [];
+let dbAngsuran = [];
+
+let configApp = { namaToko: 'SIAP TEKNIK COLDSTORAGE', namaCabang: 'STC SUMOBITO', alamatToko: 'JL. RAYA JOMBANG - SURABAYA' };
+let petugasJagaAktif = { shift: 'PAGI', nama: 'HOLIGAS' };
+let pilihOrd=null, pilihUhd=null, pilihMut=null, pilihRet=null, pilihJual=null, pilihOrdKab=null;
+
+/* FORMAT & KALKULASI */
+function fAngka(e){ e.value = e.value.replace(/\D/g,'').replace(/\B(?=(\d{3})+(?!\d))/g,'.'); }
+function angka(s){ return parseInt(String(s || '0').replace(/\D/g, '')) || 0; }
+function tgl(){
+  return new Date().toLocaleDateString('id-ID', {
+    day: '2-digit', month: 'short', year: 'numeric',
+    hour: '2-digit', minute: '2-digit'
+  }).replace(/\./g, ':');
+}
+
+function escapeHTML(str) {
+  return String(str || '')
+    .replace(/&/g, '&amp;')
+    .replace(/</g, '&lt;')
+    .replace(/>/g, '&gt;')
+    .replace(/"/g, '&quot;')
+    .replace(/'/g, '&#39;');
+}
+
+/* INISIALISASI FIREBASE & OTORISASI PERANGKAT */
+function setBadgeCloud(text, online=false){
+  const el = document.getElementById('badgeCloudStatus');
+  if(!el) return;
+  el.className = online ? 'badge-cloud online' : 'badge-cloud offline';
+  el.innerText = text;
+}
+
+function setDeviceGate(show){
+  const dash = document.getElementById('dashboard');
+  if(dash) dash.style.display = 'grid';
+}
+
+function terapkanStatusPengguna(role){
+  statusRoleAktif = role;
+  const isOwner = role === 'OWNER';
+  const badgeRole = document.getElementById('badgeRoleUser');
+  const btnKeluar = document.getElementById('btnKeluarAuth');
+  if(badgeRole) badgeRole.style.display = isOwner ? 'inline-block' : 'none';
+  if(btnKeluar) btnKeluar.style.display = isOwner ? 'inline-block' : 'none';
+  document.body.classList.toggle('is-owner', isOwner);
+}
+
+function inisialisasiFirebase(){
+  try {
+    if(!firebase.apps.length) firebase.initializeApp(firebaseConfig);
+    auth = firebase.auth();
+    db = firebase.firestore();
+
+    auth.onAuthStateChanged(async user => {
+      currentAuthUser = user || null;
+      bersihkanListener();
+      if(!user){
+        terapkanStatusPengguna('CABANG');
+        setDeviceGate(false);
+        if(window.__stcLogoutInProgress){
+          setBadgeCloud('🔒 Mode Admin sudah keluar');
+          return;
+        }
+        setBadgeCloud('🔄 Menghubungkan...');
+        try { await auth.signInAnonymously(); }
+        catch(e){
+          setBadgeCloud('⚠️ Gagal autentikasi');
+          console.error('Login anonim gagal:', e);
+        }
+        return;
+      }
+
+      // OWNER harus cocok UID dan provider password, selaras dengan Firestore Rules.
+      let ownerValid = false;
+      if(user.uid === OWNER_UID && !user.isAnonymous){
+        try {
+          const tokenInfo = await user.getIdTokenResult();
+          ownerValid = tokenInfo.claims && tokenInfo.claims.firebase &&
+            tokenInfo.claims.firebase.sign_in_provider === 'password';
+        } catch(err) { console.warn('Verifikasi sesi OWNER:', err.message); }
+      }
+      if(ownerValid){
+        terapkanStatusPengguna('OWNER');
+        setBadgeCloud('🟢 Pemilik terhubung', true);
+        mulaiPengawasSesiOwner();
+      } else if(user.isAnonymous){
+        hentikanPengawasSesiOwner();
+        terapkanStatusPengguna('CABANG');
+        setBadgeCloud('🟢 Cabang terhubung', true);
+      } else {
+        // Akun non-OWNER tidak boleh memperoleh tampilan atau hak OWNER.
+        hentikanPengawasSesiOwner();
+        terapkanStatusPengguna('CABANG');
+        setBadgeCloud('⚠️ Akun tidak memiliki hak OWNER');
+        await auth.signOut();
+        return;
+      }
+      setDeviceGate(false);
+      hubungkanRealtimeFirestore();
+    });
+  } catch(e) {
+    console.error('Firebase init:', e);
+    setBadgeCloud('⚠️ Mode Offline');
+    muatLokal();
+  }
+}
+
+function terapkanHakAksesUI(isOwner){
+  document.body.classList.toggle('is-owner', !!isOwner);
+}
+
+function bersihkanListener() {
+  unsubs.forEach(u => { if(typeof u === 'function') u(); });
+  unsubs = [];
+}
+
+
+function hubungkanRealtimeFirestore(){
+  if(!db || !['OWNER','CABANG'].includes(statusRoleAktif)) return;
+  const badgeCloud = document.getElementById('badgeCloudStatus');
+  bersihkanListener();
+  try {
+    unsubs.push(db.collection('kategori').onSnapshot(snap => {
+      dbKat = snap.docs.map(namaKategoriDariDokumen).sort(bandingKategori);
+      tampilKat(); isiKat(); isiFilterKategori(); isiUhdKat(); isiFilterMenu7(); setupMenuPindahKategori(); setupCariCepat();
+      simpanCacheLokal();
+    }, err => { console.warn('Kategori stream:', err.message); setBadgeCloud('⚠️ Izin data ditolak'); }));
+
+    unsubs.push(db.collection('barang').onSnapshot(snap => {
+      dbBrg = snap.docs.map(doc => doc.data()).sort((a,b) => bandingKodeBarang(a.kode, b.kode));
+      tampilLaporan(); tampilTabelMenu7(); tampilDaftarUhd(); cariCepatProses(); simpanCacheLokal();
+    }, err => { console.warn('Barang stream:', err.message); setBadgeCloud('⚠️ Izin data ditolak'); }));
+
+    unsubs.push(db.collection('orders').onSnapshot(snap => {
+      dbOrder = snap.docs.map(doc => ({ id: doc.id, ...doc.data() }))
+        .sort((a,b) => (b.tglWaktu || 0) - (a.tglWaktu || 0));
+      tabelOrder(); simpanCacheLokal();
+    }, err => { console.warn('Orders stream:', err.message); setBadgeCloud('⚠️ Izin data ditolak'); }));
+
+    unsubs.push(db.collection('mutasi').onSnapshot(snap => {
+      dbMutasi = snap.docs.map(doc => ({ id: doc.id, ...doc.data() }))
+        .sort((a,b) => (b.tglWaktu || 0) - (a.tglWaktu || 0));
+      tabelMutasi(); simpanCacheLokal();
+    }, err => { console.warn('Mutasi stream:', err.message); setBadgeCloud('⚠️ Izin data ditolak'); }));
+
+    unsubs.push(db.collection('returns').onSnapshot(snap => {
+      dbReturn = snap.docs.map(doc => ({ id: doc.id, ...doc.data() }))
+        .sort((a,b) => (b.tglWaktu || 0) - (a.tglWaktu || 0));
+      tabelReturn(); simpanCacheLokal();
+    }, err => { console.warn('Returns stream:', err.message); setBadgeCloud('⚠️ Izin data ditolak'); }));
+
+    unsubs.push(db.collection('pengaturan').doc('umum').onSnapshot(doc => {
+      if(doc.exists){
+        const d = doc.data();
+        if(d.configApp) configApp = d.configApp;
+        if(d.petugasJagaAktif) petugasJagaAktif = d.petugasJagaAktif;
+        applyPengaturanUI(); simpanCacheLokal();
+      }
+    }, err => console.warn('Pengaturan stream:', err.message)));
+
+    if(statusRoleAktif === 'OWNER'){
+      unsubs.push(db.collection('penjualan').onSnapshot(snap => {
+        dbPenjualanHariIni = snap.docs.map(doc => ({ id: doc.id, ...doc.data() }))
+          .sort((a,b) => (b.tglWaktu || 0) - (a.tglWaktu || 0));
+        tabelPenjualanHariIni(); hitungTotalPenjualan(); simpanCacheLokal();
+      }, err => console.warn('Penjualan stream:', err.message)));
+      unsubs.push(db.collection('angsuran').onSnapshot(snap => {
+        dbAngsuran = snap.docs.map(doc => ({ id: doc.id, ...doc.data() }))
+          .sort((a,b) => (b.tglWaktu || 0) - (a.tglWaktu || 0));
+        tabelAngsuran(); simpanCacheLokal();
+      }, err => console.warn('Angsuran stream:', err.message)));
+    }
+  } catch(e) {
+    if(badgeCloud){ badgeCloud.className = 'badge-cloud offline'; badgeCloud.innerText = '⚠️ Akses Terbatas'; }
+  }
+}
+
+/* CACHE LOKAL */
+function simpanCacheLokal(){
+  // Cache lokal hanya untuk data operasional non-sensitif. Data penjualan/angsuran
+  // tidak disimpan di localStorage agar tidak tertinggal pada perangkat bersama.
+  const payload = { dbKat, dbBrg, dbOrder, dbMutasi, dbReturn, configApp, petugasJagaAktif };
+  try { localStorage.setItem('stc_cache_final', JSON.stringify(payload)); }
+  catch(e) { console.warn('Cache lokal tidak dapat disimpan:', e.message); }
+}
+
+function muatLokal(){
+  const d = localStorage.getItem('stc_cache_final');
+  if(!d) return;
+  try {
+    const o = JSON.parse(d);
+    dbKat = o.dbKat || [];
+    dbBrg = o.dbBrg || [];
+    dbOrder = o.dbOrder || [];
+    dbMutasi = o.dbMutasi || [];
+    dbReturn = o.dbReturn || [];
+    dbPenjualanHariIni = [];
+    dbAngsuran = [];
+    if(o.configApp) configApp = o.configApp;
+    if(o.petugasJagaAktif) petugasJagaAktif = o.petugasJagaAktif;
+    // Hapus field sensitif dari cache lama (versi sebelum pengamanan) pada browser ini.
+    dbPenjualanHariIni = []; dbAngsuran = [];
+    simpanCacheLokal();
+    refreshSemua();
+  } catch(e){}
+}
+
+function refreshSemua(){
+  applyPengaturanUI();
+  tampilKat(); isiKat(); isiFilterKategori(); isiUhdKat(); isiFilterMenu7(); setupMenuPindahKategori(); setupCariCepat();
+  tabelInput(); tampilLaporan(); tabelOrder(); tabelMutasi(); tabelReturn(); tampilTabelMenu7();
+  tabelPenjualanHariIni(); hitungTotalPenjualan(); tabelAngsuran();
+}
+
+function applyPengaturanUI(){
+  document.getElementById('headerJudulToko').innerText = configApp.namaToko || 'SIAP TEKNIK COLDSTORAGE';
+  document.getElementById('namaCabang').value = configApp.namaCabang || 'STC SUMOBITO';
+  document.getElementById('headerAlamatToko').innerText = configApp.alamatToko || '';
+}
+
+function getPetugasJagaTag(){ return `[${petugasJagaAktif.shift || 'PAGI'} - ${petugasJagaAktif.nama || 'HOLIGAS'}]`; }
+
+/* AKSES TERSEMBUNYI OWNER: 5 ketukan atau tekan lama 3 detik */
+let hitunganHools = 0;
+let timerHools = null;
+let timerTekanLama = null;
+function ketukanRahasiaHools(){
+  if(statusRoleAktif === 'OWNER') { tampilkanPanelSudahAktif(); return; }
+  hitunganHools++;
+  clearTimeout(timerHools);
+  timerHools = setTimeout(() => { hitunganHools = 0; }, 2500);
+  if(hitunganHools >= 5){
+    hitunganHools = 0;
+    bukaModalLogin();
+  }
+}
+function pasangTekanLama(elemen){
+  if(!elemen) return;
+  const mulai = () => {
+    clearTimeout(timerTekanLama);
+    timerTekanLama = setTimeout(() => {
+      timerTekanLama = null;
+      if(statusRoleAktif === 'OWNER') tampilkanPanelSudahAktif();
+      else bukaModalLogin();
+    }, 3000);
+  };
+  const batal = () => { if(timerTekanLama){ clearTimeout(timerTekanLama); timerTekanLama = null; } };
+  elemen.addEventListener('pointerdown', mulai);
+  ['pointerup','pointerleave','pointercancel','contextmenu'].forEach(ev => elemen.addEventListener(ev, batal));
+}
+function tampilkanPanelSudahAktif(){
+  alert('Mode OWNER sudah aktif. Menu pengelolaan tersedia pada dashboard.');
+}
+const pemicuHeaderOwner = document.getElementById('headerJudulToko');
+pemicuHeaderOwner.addEventListener('click', ketukanRahasiaHools);
+pasangTekanLama(pemicuHeaderOwner);
+pasangTekanLama(document.querySelector('.secret-hools'));
+
+document.addEventListener('keydown', function(e) {
+  if (e.ctrlKey && e.shiftKey && (e.key === 'A' || e.key === 'a')) {
+    e.preventDefault();
+    if(statusRoleAktif === 'OWNER') tampilkanPanelSudahAktif();
+    else bukaModalLogin();
+  }
+  if (e.key === 'Escape') {
+    tutupSemuaSaran();
+    tutupModalLogin();
+  }
+  if (e.key === 'Enter' && document.getElementById('modalAuthOverlay').style.display === 'flex') {
+    if(e.target && (e.target.id === 'authEmail' || e.target.id === 'authPassword')) prosesLoginFirebase();
+  }
+});
+
+document.getElementById('modalAuthOverlay').addEventListener('click', function(e){
+  if(e.target === this) tutupModalLogin();
+});
+function bukaModalLogin(){
+  if(statusRoleAktif === 'OWNER') { tampilkanPanelSudahAktif(); return; }
+  const notice = document.getElementById('authNotice');
+  notice.style.display = 'none'; notice.innerText = '';
+  document.getElementById('modalAuthOverlay').style.display = 'flex';
+  setTimeout(() => document.getElementById('authEmail').focus(), 50);
+}
+function tutupModalLogin(){
+  document.getElementById('modalAuthOverlay').style.display = 'none';
+}
+// Mode OWNER tidak dikunci berdasarkan waktu diam.
+// Sesi berakhir saat pemilik menekan tombol 'Keluar Mode Admin'
+// atau saat Firebase/browser mengakhiri sesi autentikasi.
+function mulaiPengawasSesiOwner(){
+  hentikanPengawasSesiOwner();
+}
+function hentikanPengawasSesiOwner(){
+  if(window.__stcOwnerActivityHandler){
+    ['pointerdown','keydown','touchstart','scroll'].forEach(ev => document.removeEventListener(ev, window.__stcOwnerActivityHandler));
+    window.__stcOwnerActivityHandler = null;
+  }
+}
+
+async function prosesLoginFirebase(){
+  const emailEl = document.getElementById('authEmail');
+  const passEl = document.getElementById('authPassword');
+  const email = emailEl.value.trim();
+  const pass = passEl.value; // Jangan trim password; spasi bisa merupakan bagian password.
+  const notice = document.getElementById('authNotice');
+  const tombol = document.getElementById('btnAuthLogin');
+  notice.style.display = 'none';
+  if(!email || !pass) {
+    notice.innerText = 'Masukkan email dan password pemilik.';
+    notice.style.display = 'block';
+    return;
+  }
+  if(!auth){
+    notice.innerText = 'Layanan autentikasi belum siap. Periksa koneksi internet.';
+    notice.style.display = 'block';
+    return;
+  }
+  tombol.disabled = true; tombol.textContent = 'Memverifikasi...';
+  try {
+    const credential = await auth.signInWithEmailAndPassword(email, pass);
+    const tokenInfo = await credential.user.getIdTokenResult(true);
+    const provider = tokenInfo.claims && tokenInfo.claims.firebase && tokenInfo.claims.firebase.sign_in_provider;
+    if(credential.user.uid !== OWNER_UID || credential.user.isAnonymous || provider !== 'password'){
+      await auth.signOut();
+      throw new Error('Akun berhasil diautentikasi, tetapi UID/provider tidak terdaftar sebagai OWNER.');
+    }
+    passEl.value = '';
+    tutupModalLogin();
+    // Status OWNER diaktifkan kembali oleh onAuthStateChanged setelah token diverifikasi.
+  } catch(e) {
+    let pesan = e.message || 'Autentikasi gagal.';
+    if(e.code === 'auth/api-key-not-valid' || pesan.includes('api-key-not-valid')){
+      pesan = 'API Key belum diaktifkan untuk Authentication.';
+    } else if(['auth/user-not-found','auth/wrong-password','auth/invalid-credential','auth/invalid-login-credentials'].includes(e.code)){
+      pesan = 'Email atau password pemilik salah.';
+    } else if(e.code === 'auth/too-many-requests'){
+      pesan = 'Terlalu banyak percobaan. Coba kembali beberapa saat lagi.';
+    }
+    notice.innerText = 'Gagal masuk: ' + pesan;
+    notice.style.display = 'block';
+  } finally {
+    tombol.disabled = false; tombol.textContent = 'Buka Kendali Penuh';
+  }
+}
+async function prosesLogoutFirebase(){
+  if(!auth){
+    alert('Layanan autentikasi belum siap. Periksa koneksi internet lalu coba lagi.');
+    return;
+  }
+  if(statusRoleAktif !== 'OWNER' || !currentAuthUser || currentAuthUser.uid !== OWNER_UID){
+    alert('Sesi pemilik tidak terdeteksi. Muat ulang halaman lalu coba lagi.');
+    return;
+  }
+  if(!confirm('Keluar dari Mode Admin sekarang?')) return;
+
+  const tombolKeluar = document.getElementById('btnKeluarAuth');
+  const teksAsli = tombolKeluar ? tombolKeluar.textContent : '';
+  if(tombolKeluar){ tombolKeluar.disabled = true; tombolKeluar.textContent = '⏳ Keluar...'; }
+  window.__stcLogoutInProgress = true;
+  try {
+    hentikanPengawasSesiOwner();
+    const passwordEl = document.getElementById('authPassword');
+    if(passwordEl) passwordEl.value = '';
+
+    // Hentikan sesi OWNER terlebih dahulu. Flag mencegah callback auth
+    // langsung membuat sesi anonim sebelum proses logout selesai.
+    await auth.signOut();
+    currentAuthUser = null;
+    terapkanStatusPengguna('CABANG');
+    setDeviceGate(false);
+    setBadgeCloud('🔒 Mode Admin sudah keluar');
+
+    // Kembalikan sesi anonim untuk penggunaan mode cabang biasa.
+    window.__stcLogoutInProgress = false;
+    try {
+      await auth.signInAnonymously();
+    } catch(anonError) {
+      console.warn('Sesi anonim tidak dapat dimulai:', anonError);
+      setBadgeCloud('⚠️ Keluar berhasil; mode cabang offline');
+    }
+    alert('Berhasil keluar dari Mode Admin.');
+  } catch(e) {
+    window.__stcLogoutInProgress = false;
+    console.error('Logout Firebase gagal:', e);
+    alert('Gagal keluar dari Mode Admin: ' + (e.message || 'Kesalahan tidak diketahui'));
+    if(tombolKeluar){ tombolKeluar.disabled = false; tombolKeluar.textContent = teksAsli || '🚪 Keluar Mode Admin'; }
+  }
+}
+
+/* NAVIGASI & TAB */
+function bukaMenuTarget(targetId){
+  if(!['OWNER','CABANG'].includes(statusRoleAktif)){
+    alert('Perangkat ini belum disetujui OWNER. Data belum dapat diakses.');
+    return;
+  }
+  const menuKhusus = ['inputBarang', 'ubahHargaData', 'laporan', 'pindahKategori', 'penjualanHariIni', 'angsuranData', 'pengaturan', 'penjagaToko', 'pulihkanData', 'backupData'];
+  if(statusRoleAktif !== 'OWNER' && menuKhusus.includes(targetId)){
+    alert("Hanya pemilik toko yang memiliki izin ke menu ini.");
+    bukaModalLogin();
+    return;
+  }
+  tutupSemuaSaran();
+  document.getElementById('dashboard').style.display='none';
+  document.querySelectorAll('.page').forEach(p=>p.classList.remove('active'));
+  document.getElementById(targetId).classList.add('active');
+  // Simpan riwayat navigasi agar tombol Back HP kembali ke menu utama, bukan menutup tab.
+  history.pushState({ stcMenu: targetId }, '', '#menu-' + encodeURIComponent(targetId));
+  
+  if(targetId==='laporan'){ isiFilterKategori(); tampilLaporan(); }
+  if(targetId==='ubahHargaData'){ isiUhdKat(); }
+  if(targetId==='cetakKategori'){ isiFilterMenu7(); tampilTabelMenu7(); }
+  if(targetId==='pindahKategori'){ setupMenuPindahKategori(); }
+  if(targetId==='cariCepatBarang'){ setupCariCepat(); }
+  if(targetId==='penjualanHariIni'){ tabelPenjualanHariIni(); hitungTotalPenjualan(); }
+  if(targetId==='angsuranData'){ tabelAngsuran(); }
+  if(targetId==='pengaturan'){ muatFormPengaturan(); }
+  window.scrollTo({top: 0, behavior: 'smooth'});
+}
+
+document.querySelectorAll('.menu-card').forEach(b=>{ b.onclick=()=>{ bukaMenuTarget(b.dataset.target); }; });
+function kembali(){
+  tutupSemuaSaran();
+  document.querySelectorAll('.page').forEach(p=>p.classList.remove('active'));
+  document.getElementById('dashboard').style.display='grid';
+  window.scrollTo({top: 0, behavior: 'smooth'});
+}
+
+// Kelola tombol Back Android/browser: dari halaman menu kembali ke dashboard.
+// Saat sudah di dashboard, tanyakan sebelum pengguna meninggalkan website.
+let stcIzinkanKeluar = false;
+function stcAdaMenuTerbuka(){
+  return !!document.querySelector('.page.active');
+}
+function stcKonfirmasiKeluar(){
+  return confirm('Apakah Anda yakin ingin keluar dari website STC?');
+}
+window.addEventListener('popstate', function(){
+  if(stcAdaMenuTerbuka()){
+    kembali();
+    // Tetap sediakan satu state agar tombol Back berikutnya bisa dikonfirmasi.
+    history.pushState({ stcDashboard: true }, '', location.pathname + location.search + '#dashboard');
+    return;
+  }
+  if(!stcIzinkanKeluar){
+    if(stcKonfirmasiKeluar()){
+      stcIzinkanKeluar = true;
+      // Izinkan browser kembali ke halaman sebelumnya.
+      history.back();
+    } else {
+      history.pushState({ stcDashboard: true }, '', location.pathname + location.search + '#dashboard');
+    }
+  }
+});
+
+// Prompt bawaan browser saat tab ditutup, halaman ditinggalkan, atau dimuat ulang.
+// Browser/Android menentukan teks dialog dan mungkin membatasi kapan dialog ditampilkan.
+window.addEventListener('beforeunload', function(e){
+  if(stcIzinkanKeluar) return;
+  e.preventDefault();
+  e.returnValue = '';
+});
+document.querySelectorAll('.tab').forEach(t=>{
+  t.onclick=()=>{
+    tutupSemuaSaran();
+    const p=t.closest('.page');
+    p.querySelectorAll('.tab').forEach(x=>x.classList.remove('active'));
+    t.classList.add('active');
+    p.querySelectorAll('.tab-content').forEach(c=>c.classList.remove('active'));
+    p.querySelector('#'+t.dataset.tab).classList.add('active');
+  };
+});
+
+/* PENCARIAN & AUTOCOMPLETE AMAN DARI KARAKTER PETIK */
+function prediksiNama(input, idSaran, namaVar){
+  const q = input.value.trim().toLowerCase(), box = document.getElementById(idSaran);
+  if(!q){ box.style.display='none'; return; }
+  const hasil = dbBrg.filter(b => (b.nama || '').toLowerCase().includes(q) || (b.kode || '').toLowerCase().includes(q));
+  if(!hasil.length){ box.innerHTML = '<div class="saran-item">Tidak ditemukan</div>'; box.style.display = 'block'; return; }
+  
+  box.innerHTML = hasil.map(b => `
+    <div class="saran-item" onclick="pilihSaranSafe('${encodeURIComponent(b.kode)}', '${idSaran}', '${namaVar}', '${input.id}');">
+      <div><b>${escapeHTML(b.kode)}</b> · ${escapeHTML(b.nama)}</div>
+    </div>`).join('');
+  box.style.display = 'block';
+}
+
+function kosongkanKolomCari(...ids){
+  ids.forEach(id => {
+    const el = document.getElementById(id);
+    if(el) el.value = '';
+  });
+}
+
+function pilihSaranSafe(encodedKode, idSaran, namaVar, idInput){
+  pilihSaran(decodeURIComponent(encodedKode), idSaran, namaVar, idInput);
+}
+
+function pilihSaran(kode, idSaran, namaVar, idInput){
+  const b = dbBrg.find(x => String(x.kode || '').trim().toLowerCase() === String(kode || '').trim().toLowerCase());
+  if(!b) return;
+  if(namaVar === 'pilihOrd') pilihOrd = b;
+  else if(namaVar === 'pilihUhd') pilihUhd = b;
+  else if(namaVar === 'pilihMut') pilihMut = b;
+  else if(namaVar === 'pilihRet') pilihRet = b;
+  else if(namaVar === 'pilihJual') { pilihJual = b; document.getElementById('jualKode').value = b.kode; hitungSubtotalJual(); }
+  kosongkanKolomCari(idInput);
+  document.getElementById(idSaran).style.display = 'none';
+
+  if(namaVar === 'pilihOrd') { infoOrd(); setTimeout(() => document.getElementById('ordKet')?.focus(), 150); }
+  else if(namaVar === 'pilihUhd'){ tampilFormEditHargaData(); }
+  else if(namaVar === 'pilihMut'){ infoMut(); setTimeout(() => document.getElementById('mutQty')?.focus(), 150); }
+  else if(namaVar === 'pilihRet'){ infoRet(); setTimeout(() => document.getElementById('retQty')?.focus(), 150); }
+}
+
+function prediksiNamaKabel(input){
+  const q=input.value.trim().toLowerCase(), box=document.getElementById('saranOrdKab');
+  if(!q){box.style.display='none';return;}
+  const hasil=dbBrg.filter(b=>((b.nama||'').toLowerCase().includes('kabel') || (b.kat && b.kat.toLowerCase().includes('kabel'))) && ((b.nama||'').toLowerCase().includes(q) || (b.kode||'').toLowerCase().includes(q)));
+  if(!hasil.length){box.innerHTML='<div class="saran-item">Tidak ditemukan kabel</div>';box.style.display='block';return;}
+  box.innerHTML=hasil.map(b=>`
+    <div class="saran-item" onclick="pilihSaranKabelSafe('${encodeURIComponent(b.kode)}')">
+      <div><b>${escapeHTML(b.kode)}</b> · ${escapeHTML(b.nama)}</div>
+    </div>`).join('');
+  box.style.display='block';
+}
+
+function pilihSaranKabelSafe(encKode){
+  pilihSaranKabel(decodeURIComponent(encKode));
+}
+
+function pilihSaranKabel(kode){
+  const b=dbBrg.find(x=>x.kode===kode); if(!b) return;
+  pilihOrdKab=b;
+  document.getElementById('ordKabNama').value=b.nama.toUpperCase();
+  document.getElementById('ordKabKode').value=b.kode.toUpperCase();
+  document.getElementById('saranOrdKab').style.display='none';
+  infoOrdKab();
+}
+
+function tutupSemuaSaran(){ document.querySelectorAll('.saran-box').forEach(b=>{ b.style.display='none'; b.innerHTML=''; }); }
+document.addEventListener('click', e => { if(!e.target.closest('.form-group')) tutupSemuaSaran(); });
+
+/* OPERASI MASTER KATEGORI & BARANG */
+// Firestore document IDs are single path segments; a slash must never be used
+// directly as part of an ID. Keep legacy IDs unchanged when they are already valid.
+function idKategoriFirestore(nama){
+  const nilai = String(nama || '');
+  return nilai.includes('/') ? '__stc_cat__' + encodeURIComponent(nilai) : nilai;
+}
+function namaKategoriDariDokumen(doc){
+  const data = doc.data() || {};
+  if (data.nama) return String(data.nama);
+  const id = String(doc.id || '');
+  if (id.startsWith('__stc_cat__')) {
+    try { return decodeURIComponent(id.slice('__stc_cat__'.length)); } catch (_) {}
+  }
+  return id;
+}
+// Pengurutan alfabetis/numerik hanya diterapkan pada nama kategori dan kode barang.
+function bandingKategori(a, b){
+  return String(a || '').localeCompare(String(b || ''), 'id', { sensitivity: 'base', numeric: true });
+}
+function bandingKodeBarang(a, b){
+  return String(a || '').localeCompare(String(b || ''), 'id', { sensitivity: 'base', numeric: true });
+}
+function daftarKategoriUrut(){
+  return [...dbKat].sort(bandingKategori);
+}
+function idBarangFirestore(kode){
+  const nilai = String(kode || '');
+  return nilai.includes('/') ? '__stc_barang__' + encodeURIComponent(nilai) : nilai;
+}
+
+async function simpanKategori(){
+  const v = document.getElementById('namaKategori').value.trim().toUpperCase();
+  if(!v) return alert('Nama kategori tidak boleh kosong!');
+  if(db){
+    try {
+      await db.collection('kategori').doc(idKategoriFirestore(v)).set({ nama: v, dibuat: tgl() }, { merge: true });
+      document.getElementById('namaKategori').value = '';
+      alert('Kategori tersimpan ke database!');
+    } catch(e) { alert("Gagal simpan kategori: " + e.message); }
+  } else {
+    if(!dbKat.includes(v)) dbKat.push(v);
+    document.getElementById('namaKategori').value = '';
+    simpanCacheLokal(); refreshSemua();
+  }
+}
+
+async function hapusKategori(namaKat){
+  if(statusRoleAktif !== 'OWNER') return alert('Khusus Pemilik Toko!');
+  try { namaKat = decodeURIComponent(String(namaKat)); } catch (_) { namaKat = String(namaKat); }
+  const target = String(namaKat || '').trim();
+  if(!target) return alert('Nama kategori tidak valid.');
+
+  const normKat = s => String(s || '').trim().normalize('NFC').toLocaleUpperCase('id-ID');
+  const terkait = dbBrg.filter(b => normKat(b.kat) === normKat(target)).length;
+  const peringatanBarang = terkait
+    ? `\\n\\nPerhatian: ${terkait} barang masih memakai kategori ini. Barang tidak akan dihapus; kategori pada barang perlu diganti jika Anda ingin menghilangkan nama kategori sepenuhnya.`
+    : '';
+  if(!confirm(`Hapus kategori "${target}"?${peringatanBarang}`)) return;
+
+  if(db){
+    try {
+      const col = db.collection('kategori');
+      const snap = await col.get();
+      const cocok = snap.docs.filter(doc => normKat(namaKategoriDariDokumen(doc)) === normKat(target));
+      // Include the deterministic document ID used by this app, even if a legacy
+      // document does not carry a "nama" field or query matching cannot find it.
+      const directRef = col.doc(idKategoriFirestore(target));
+      const directSnap = await directRef.get();
+      const refs = new Map();
+      cocok.forEach(doc => refs.set(doc.ref.path, doc.ref));
+      if(directSnap.exists) refs.set(directRef.path, directRef);
+
+      if(refs.size === 0){
+        // Do not pretend success if Firestore has no matching document.
+        dbKat = dbKat.filter(k => normKat(k) !== normKat(target));
+        simpanCacheLokal();
+        refreshSemua();
+        alert(`Kategori "${target}" tidak ditemukan di koleksi Firebase. Daftar lokal telah disegarkan. Jika kategori tetap muncul, periksa koneksi dan aturan Firestore.`);
+        return;
+      }
+
+      // Firestore batch supports up to 500 writes; category duplicates are normally few.
+      const allRefs = [...refs.values()];
+      for(let i = 0; i < allRefs.length; i += 400){
+        const batch = db.batch();
+        allRefs.slice(i, i + 400).forEach(ref => batch.delete(ref));
+        await batch.commit();
+      }
+      dbKat = dbKat.filter(k => normKat(k) !== normKat(target));
+      simpanCacheLokal();
+      refreshSemua();
+      alert(`Kategori "${target}" berhasil dihapus dari Firebase.${terkait ? `\\n\\nCatatan: ${terkait} barang masih menggunakan nama kategori tersebut. Ubah kategori barang melalui menu Ubah Data & Harga agar nama itu tidak muncul lagi pada data barang.` : ''}`);
+    } catch(e) {
+      console.error('Hapus kategori gagal:', e);
+      alert('Kategori gagal dihapus dari Firebase. Data lokal tidak diubah. Periksa koneksi dan izin Firestore.\\n\\nDetail: ' + (e && e.message ? e.message : e));
+    }
+  } else {
+    dbKat = dbKat.filter(k => normKat(k) !== normKat(target));
+    simpanCacheLokal();
+    refreshSemua();
+    alert(`Kategori "${target}" dihapus dari penyimpanan lokal.${terkait ? `\\n\\nCatatan: ${terkait} barang masih memakai kategori ini.` : ''}`);
+  }
+}
+function tampilKat(){ 
+  const c = document.getElementById('daftarKategori'); 
+  if(c) c.innerHTML = daftarKategoriUrut().map(k => `
+    <div style="padding:8px; border-bottom:1px solid #334155; display:flex; justify-content:space-between; align-items:center;">
+      <span>📁 ${escapeHTML(k)}</span>
+      <button class="btn-danger aksi-sm" onclick="hapusKategori('${encodeURIComponent(k)}')">Hapus</button>
+    </div>`).join(''); 
+}
+
+function kategoriAdalahKabel(kategori){
+  return String(kategori || '').trim().toUpperCase().includes('KABEL');
+}
+function toggleJenisKabelInput(){
+  const kategori = document.getElementById('inKategori')?.value || '';
+  const grup = document.getElementById('groupJenisKabel');
+  const isKabel = kategoriAdalahKabel(kategori);
+  if(grup) grup.style.display = isKabel ? 'block' : 'none';
+  const grupUkuran=document.getElementById('groupUkuranKabel');
+  if(grupUkuran) grupUkuran.style.display=isKabel?'block':'none';
+  if(!isKabel){ const pilih=document.getElementById('inJenisKabel'); if(pilih) pilih.value=''; const ukuran=document.getElementById('inUkuranKabel'); if(ukuran) ukuran.value=''; }
+}
+function ambilJenisKabel(kategori){
+  if(!kategoriAdalahKabel(kategori)) return '';
+  return document.getElementById('inJenisKabel')?.value || '';
+}
+function toggleJenisKabelEdit(){
+  const kategori=document.getElementById('editUhdKategori')?.value || '';
+  const grup=document.getElementById('groupEditJenisKabel');
+  const pilih=document.getElementById('editUhdJenisKabel');
+  const isKabel=kategoriAdalahKabel(kategori);
+  if(grup) grup.style.display=isKabel?'block':'none';
+  const grupUkuran=document.getElementById('groupEditUkuranKabel');
+  if(grupUkuran) grupUkuran.style.display=isKabel?'block':'none';
+  if(!isKabel && pilih) pilih.value='';
+  if(!isKabel){const ukuran=document.getElementById('editUhdUkuranKabel');if(ukuran)ukuran.value='';}
+}
+function normalisasiJenisKabelLama(jenis){
+  const v=String(jenis||'').trim().toUpperCase();
+  if(['NYA','KABEL TUNGGAL / NYA','KABEL NYA'].includes(v)) return 'NYA';
+  if(['NYM','KABEL NYM'].includes(v)) return 'NYM';
+  if(['NYY','KABEL NYY'].includes(v)) return 'NYY';
+  if(['NYAF','KABEL NYAF'].includes(v)) return 'NYAF';
+  if(['NYMHY','KABEL NYMHY'].includes(v)) return 'NYMHY';
+  return '';
+}
+
+// Gabungkan ukuran kabel ke nama barang untuk tampilan katalog/detail.
+// Ukuran tetap disimpan sebagai field tersendiri agar mudah diedit dan difilter.
+function namaBarangDenganUkuran(b){
+  const nama=String(b?.nama||'').trim();
+  const ukuran=String(b?.ukuranKabel||'').trim();
+  if(!ukuran || !kategoriAdalahKabel(b?.kat)) return nama;
+  const norm=s=>String(s||'').toUpperCase().replace(/\s+/g,'').replace(/,/g,'.');
+  return norm(nama).includes(norm(ukuran)) ? nama : `${nama} ${ukuran}`.trim();
+}
+
+async function simpanBarang(){
+  const kode = document.getElementById('inKode').value.trim().toUpperCase();
+  const nama = document.getElementById('inNama').value.trim().toUpperCase();
+  const kat = document.getElementById('inKategori').value.toUpperCase();
+  if(!kode || !nama) return alert('Kode dan Nama Barang wajib diisi!');
+  const jenisKabel = ambilJenisKabel(kat);
+  const ukuranKabel = kategoriAdalahKabel(kat) ? (document.getElementById('inUkuranKabel')?.value || '') : '';
+  if(kategoriAdalahKabel(kat) && !jenisKabel){
+    return alert('Pilih Jenis Kabel terlebih dahulu!');
+  }
+  if(kategoriAdalahKabel(kat) && !ukuranKabel){
+    return alert('Pilih Ukuran Kabel terlebih dahulu!');
+  }
+
+  const item = {
+    kode, nama, kat,
+    ...(jenisKabel ? { jenisKabel, ukuranKabel } : {}),
+    harga: angka(document.getElementById('inHarga').value),
+    hargaMeter: angka(document.getElementById('inHargaMeter').value),
+    hargaRoll: angka(document.getElementById('inHargaRoll').value),
+    ket: document.getElementById('inKet').value.trim(),
+    tgl: tgl(),
+    tglWaktu: Date.now()
+  };
+
+  if(db){
+    try {
+      await db.collection('barang').doc(idBarangFirestore(kode)).set(item);
+      inputHariIni.push(item);
+      tabelInput();
+      document.getElementById('inKode').value = '';
+      document.getElementById('inNama').value = '';
+      document.getElementById('inJenisKabel').value = '';
+      document.getElementById('inUkuranKabel').value = '';
+      document.getElementById('inJenisKabelLainnya').value = '';
+      toggleJenisKabelInput();
+      document.getElementById('inHarga').value = '';
+      document.getElementById('inHargaMeter').value = '';
+      document.getElementById('inHargaRoll').value = '';
+      document.getElementById('inKet').value = '';
+      alert('Barang tersimpan ke database!');
+    } catch(e) { alert("Gagal simpan barang: " + e.message); }
+  } else {
+    dbBrg = dbBrg.filter(x => x.kode !== kode);
+    dbBrg.push(item);
+    inputHariIni.push(item);
+    tabelInput();
+    simpanCacheLokal(); refreshSemua();
+    document.getElementById('inJenisKabel').value = '';
+    document.getElementById('inUkuranKabel').value = '';
+    document.getElementById('inJenisKabelLainnya').value = '';
+    toggleJenisKabelInput();
+    alert('Barang tersimpan (Lokal)!');
+  }
+}
+
+function tabelInput(){
+  const tb = document.getElementById('tabelInput');
+  if(tb) tb.innerHTML = inputHariIni.map((b,i)=>`
+    <tr>
+      <td>${escapeHTML(b.kode)}</td>
+      <td>${escapeHTML(b.nama)}</td>
+      <td>${escapeHTML(b.kat)}</td>
+      <td>${escapeHTML(b.jenisKabel||'')}</td>
+      <td>${escapeHTML(b.ukuranKabel||'')}</td>
+      <td>Rp ${(b.harga||0).toLocaleString()}</td>
+      <td>Rp ${(b.hargaMeter||0).toLocaleString()}</td>
+      <td>Rp ${(b.hargaRoll||0).toLocaleString()}</td>
+      <td>${escapeHTML(b.ket||'')}</td>
+      <td><button class="btn-danger aksi-sm" onclick="inputHariIni.splice(${i},1); tabelInput();">Hapus</button></td>
+    </tr>`).join('');
+}
+function kosongkanInputHariIni(){ inputHariIni=[]; tabelInput(); }
+
+/* OPERASI UBAH HARGA */
+function isiUhdKat(){ 
+  const opsi = daftarKategoriUrut().map(k=>`<option value="${escapeHTML(k)}">${escapeHTML(k)}</option>`).join('');
+  const s=document.getElementById('uhdKategori'); if(s) s.innerHTML='<option value="">Semua</option>'+opsi;
+  const se=document.getElementById('editUhdKategori'); if(se) se.innerHTML='<option value="">-- Pilih Kategori --</option>'+opsi;
+  const sd=document.getElementById('daftarUhdKategori'); if(sd) sd.innerHTML='<option value="">Semua Kategori</option>'+opsi;
+  tampilDaftarUhd();
+}
+function filterUhdByKategori(){ pilihUhd=null; document.getElementById('uhdNama').value=''; tampilDaftarUhd(); }
+
+function tampilDaftarUhd(){
+  const tb=document.getElementById('tabelDaftarUhd'); if(!tb) return;
+  const q=(document.getElementById('daftarUhdCari')?.value||'').trim().toLowerCase();
+  const kat=document.getElementById('daftarUhdKategori')?.value||'';
+  const data=dbBrg.filter(b=>{
+    const cocokTeks=!q || String(b.kode||'').toLowerCase().includes(q) || String(b.nama||'').toLowerCase().includes(q);
+    return cocokTeks && (!kat || String(b.kat||'')===kat);
+  });
+  const info=document.getElementById('daftarUhdInfo');
+  if(info) info.textContent=`Menampilkan ${data.length} dari ${dbBrg.length} barang`;
+  if(!data.length){tb.innerHTML='<tr><td colspan="9" class="text-center" style="padding:12px;">Barang tidak ditemukan</td></tr>';return;}
+  tb.innerHTML=data.map(b=>`<tr>
+    <td>${escapeHTML(b.kode||'')}</td><td>${escapeHTML(b.nama||'')}</td><td>${escapeHTML(b.kat||'-')}</td><td>${escapeHTML(normalisasiJenisKabelLama(b.jenisKabel)||b.jenisKabel||'')}</td><td>${escapeHTML(b.ukuranKabel||'')}</td>
+    <td>Rp ${(Number(b.harga)||0).toLocaleString('id-ID')}</td>
+    <td>Rp ${(Number(b.hargaMeter)||0).toLocaleString('id-ID')}</td>
+    <td>Rp ${(Number(b.hargaRoll)||0).toLocaleString('id-ID')}</td>
+    <td><button class="btn-warning aksi-sm" onclick="pilihBarangUhdDariDaftar('${encodeURIComponent(b.kode||'')}')">Ubah</button></td>
+  </tr>`).join('');
+}
+function pilihBarangUhdDariDaftar(encKode){
+  const kode=decodeURIComponent(encKode);
+  pilihUhd=dbBrg.find(b=>String(b.kode||'')===kode);
+  if(pilihUhd){tampilFormEditHargaData();document.getElementById('formEditHargaData')?.scrollIntoView({behavior:'smooth',block:'start'});}
+}
+function cariUhdNama(){
+  const q = document.getElementById('uhdNama').value.trim().toLowerCase();
+  const kat = document.getElementById('uhdKategori')?.value || '';
+  if(!q) return alert('Masukkan kode atau nama barang yang ingin dicari!');
+  pilihUhd = dbBrg.find(b => {
+    const cocokTeks = String(b.kode || '').toLowerCase() === q ||
+      String(b.nama || '').toLowerCase() === q ||
+      String(b.kode || '').toLowerCase().includes(q) ||
+      String(b.nama || '').toLowerCase().includes(q);
+    return cocokTeks && (!kat || String(b.kat || '') === kat);
+  });
+  if(pilihUhd) tampilFormEditHargaData();
+  else alert('Barang tidak ditemukan pada kategori yang dipilih!');
+}
+function tampilFormEditHargaData(){
+  if(!pilihUhd) return;
+  document.getElementById('editUhdKode').value=pilihUhd.kode;
+  document.getElementById('editUhdNama').value=pilihUhd.nama;
+  if(document.getElementById('editUhdKategori')) document.getElementById('editUhdKategori').value = pilihUhd.kat || '';
+  document.getElementById('editUhdJenisKabel').value=normalisasiJenisKabelLama(pilihUhd.jenisKabel);
+  document.getElementById('editUhdUkuranKabel').value=pilihUhd.ukuranKabel||'';
+  toggleJenisKabelEdit();
+  document.getElementById('editUhdHargaJual').value=(pilihUhd.harga||0).toLocaleString();
+  document.getElementById('editUhdHargaMeter').value=(pilihUhd.hargaMeter||0).toLocaleString();
+  document.getElementById('editUhdHargaRoll').value=(pilihUhd.hargaRoll||0).toLocaleString();
+  document.getElementById('editUhdKet').value=pilihUhd.ket || '';
+}
+
+function bersihkanFormUbahHargaData(){
+  // Bersihkan seluruh kolom pencarian, filter, dan formulir setelah perubahan berhasil disimpan.
+  ['uhdKategori','uhdNama','editUhdKode','editUhdNama','editUhdKategori',
+   'editUhdJenisKabel','editUhdUkuranKabel','editUhdHargaJual','editUhdHargaMeter',
+   'editUhdHargaRoll','editUhdKet','daftarUhdCari','daftarUhdKategori'].forEach(id=>{
+    const el=document.getElementById(id);
+    if(el) el.value='';
+  });
+  const saran=document.getElementById('saranUhd'); if(saran) saran.innerHTML='';
+  toggleJenisKabelEdit();
+  pilihUhd=null;
+  tampilDaftarUhd();
+}
+
+async function simpanUbahHargaData(){
+  if(!pilihUhd) return;
+  const kode = document.getElementById('editUhdKode').value.trim().toUpperCase();
+  const nama = document.getElementById('editUhdNama').value.trim().toUpperCase();
+  const kat = document.getElementById('editUhdKategori').value;
+  if(!kode || !nama) return alert('Kode dan Nama Barang wajib diisi!');
+  if(!kat) return alert('Silakan pilih kategori barang!');
+  const jenisKabel=kategoriAdalahKabel(kat)?(document.getElementById('editUhdJenisKabel')?.value||''):'';
+  const ukuranKabel=kategoriAdalahKabel(kat)?(document.getElementById('editUhdUkuranKabel')?.value||''):'';
+  if(kategoriAdalahKabel(kat) && !jenisKabel) return alert('Pilih Jenis Kabel terlebih dahulu!');
+  if(kategoriAdalahKabel(kat) && !ukuranKabel) return alert('Pilih Ukuran Kabel terlebih dahulu!');
+  const updateData = {
+    kode,
+    nama,
+    kat,
+    jenisKabel,
+    ukuranKabel,
+    harga: angka(document.getElementById('editUhdHargaJual').value),
+    hargaMeter: angka(document.getElementById('editUhdHargaMeter').value),
+    hargaRoll: angka(document.getElementById('editUhdHargaRoll').value),
+    ket: document.getElementById('editUhdKet').value.trim()
+  };
+
+  if(db){
+    try {
+      await db.collection('barang').doc(idBarangFirestore(kode)).update(updateData);
+      Object.assign(pilihUhd, updateData);
+      simpanCacheLokal();
+      tampilLaporan(); tampilTabelMenu7(); cariCepatProses();
+      bersihkanFormUbahHargaData();
+      alert('Semua data dan harga barang berhasil diperbarui di cloud! Form telah dibersihkan.');
+    } catch(e) { alert("Gagal update data: " + e.message); }
+  } else {
+    Object.assign(pilihUhd, updateData);
+    simpanCacheLokal(); refreshSemua();
+    bersihkanFormUbahHargaData();
+    alert('Semua data dan harga barang berhasil diperbarui secara lokal! Form telah dibersihkan.');
+  }
+}
+
+async function hapusBarangDariEdit(){
+  if(statusRoleAktif !== 'OWNER') return alert('Khusus Pemilik Toko!');
+  if(!pilihUhd) return;
+  if(!confirm(`Yakin ingin MENGHAPUS PERMANEN barang "${pilihUhd.nama}" (${pilihUhd.kode})?`)) return;
+  const kode = pilihUhd.kode;
+  if(db){
+    try {
+      await db.collection('barang').doc(idBarangFirestore(kode)).delete();
+      alert('Barang berhasil dihapus!');
+      kembali();
+    } catch(e){ alert('Gagal menghapus barang: ' + e.message); }
+  } else {
+    dbBrg = dbBrg.filter(b => b.kode !== kode);
+    simpanCacheLokal(); refreshSemua();
+    kembali();
+  }
+}
+
+function bukaUbahHargaDataDariLaporan(encKode){ 
+  if(statusRoleAktif !== 'OWNER') return alert('Khusus Pemilik Toko!'); 
+  const kode = decodeURIComponent(encKode);
+  pilihUhd=dbBrg.find(b=>b.kode===kode); 
+  if(pilihUhd){ bukaMenuTarget('ubahHargaData'); tampilFormEditHargaData(); } 
+}
+
+/* LAPORAN & PINDAH KATEGORI */
+function isiFilterKategori(){ const s=document.getElementById('filterKat'); if(s) s.innerHTML='<option value="">Semua Kategori</option>'+daftarKategoriUrut().map(k=>`<option value="${escapeHTML(k)}">${escapeHTML(k)}</option>`).join(''); }
+function tampilLaporan(){
+  const tb=document.getElementById('hasilLaporan'); if(!tb) return;
+  const kat = document.getElementById('filterKat')?.value;
+  let items = kat ? dbBrg.filter(b => b.kat === kat) : dbBrg;
+  tb.innerHTML=`<table><thead><tr><th>Kode</th><th>Nama</th><th>Kategori</th><th>Satuan</th><th>Meter</th><th>Roll</th></tr></thead><tbody>`+
+    items.map(b=>`<tr><td>${escapeHTML(b.kode)}</td><td>${escapeHTML(b.nama)}</td><td>${escapeHTML(b.kat||'-')}</td><td>Rp ${(b.harga||0).toLocaleString()}</td><td>Rp ${(b.hargaMeter||0).toLocaleString()}</td><td>Rp ${(b.hargaRoll||0).toLocaleString()}</td></tr>`).join('')+`</tbody></table>`;
+}
+
+async function hapusSemuaBarang(){ 
+  if(statusRoleAktif !== 'OWNER') return alert('Khusus Pemilik Toko!'); 
+  if(confirm('HAPUS SEMUA DATA BARANG DI DATABASE? Tindakan ini tidak dapat dibatalkan!')){ 
+    if(db){
+      const snap = await db.collection('barang').get();
+      const batch = db.batch();
+      snap.forEach(d => batch.delete(d.ref));
+      await batch.commit();
+    } else {
+      dbBrg=[]; simpanCacheLokal(); refreshSemua();
+    }
+    alert('Semua data barang telah dibersihkan!');
+  } 
+}
+
+function setupMenuPindahKategori(){ 
+  const daftar = daftarKategoriUrut();
+  const filter = document.getElementById('pkFilterKat');
+  const tujuan = document.getElementById('pkKategoriTujuanMassal');
+
+  if(filter) {
+    const nilaiLama = filter.value;
+    filter.innerHTML = '<option value="">-- SEMUA KATEGORI --</option>' +
+      daftar.map(k=>`<option value="${escapeHTML(k)}">${escapeHTML(k)}</option>`).join('');
+    if(daftar.includes(nilaiLama)) filter.value = nilaiLama;
+  }
+  if(tujuan) {
+    const nilaiLama = tujuan.value;
+    tujuan.innerHTML = '<option value="">-- KATEGORI TUJUAN BARU --</option>' +
+      daftar.map(k=>`<option value="${escapeHTML(k)}">${escapeHTML(k)}</option>`).join('');
+    if(daftar.includes(nilaiLama)) tujuan.value = nilaiLama;
+  }
+  muatTabelPindahKategori(); 
+}
+
+function toggleCentangSemuaPK(){
+  const list = document.querySelectorAll('.chk-item-pk');
+  if(!list.length) return;
+  const semuaTercentang = Array.from(list).every(c => c.checked);
+  list.forEach(c => c.checked = !semuaTercentang);
+}
+
+function batalCentangSemuaPK(){
+  document.querySelectorAll('.chk-item-pk').forEach(c => c.checked = false);
+}
+
+function muatTabelPindahKategori(){ 
+  const tb=document.getElementById('tabelPindahKategoriMulti'); 
+  if(!tb) return;
+  const kw = (document.getElementById('pkFilterKeyword')?.value || '').trim().toLocaleLowerCase('id');
+  const kat = document.getElementById('pkFilterKat')?.value || '';
+  let list = dbBrg.filter(b => {
+    const cocokKategori = !kat || (b.kat || '') === kat;
+    const cocokKata = !kw ||
+      (b.nama || '').toLocaleLowerCase('id').includes(kw) ||
+      (b.kode || '').toLocaleLowerCase('id').includes(kw) ||
+      (b.kat || '').toLocaleLowerCase('id').includes(kw);
+    return cocokKategori && cocokKata;
+  });
+  list.sort((a,b) => bandingKodeBarang(a.kode, b.kode));
+  tb.innerHTML=list.map(b=>`
+    <tr>
+      <td style="text-align:center;"><input type="checkbox" class="chk-item-pk" value="${escapeHTML(b.kode)}"></td>
+      <td>${escapeHTML(b.kode)}</td>
+      <td>${escapeHTML(b.nama)}</td>
+      <td>${escapeHTML(b.kat||'-')}</td>
+    </tr>`).join('');
+  if(!list.length) {
+    tb.innerHTML = '<tr><td colspan="4" style="text-align:center;padding:18px;color:#94a3b8;">Tidak ada barang pada filter ini.</td></tr>';
+  }
+}
+
+async function simpanPindahKategoriMassal(){ 
+  const tujuanEl = document.getElementById('pkKategoriTujuanMassal');
+  const t = tujuanEl?.value || '';
+  const checkboxes = Array.from(document.querySelectorAll('.chk-item-pk:checked'));
+  if(!checkboxes.length) return alert('Pilih minimal 1 barang!');
+  if(!t) return alert('Pilih kategori tujuan baru terlebih dahulu!');
+
+  const kodeTerpilih = checkboxes.map(c => c.value);
+  const barangBerubah = kodeTerpilih.filter(kode => {
+    const b = dbBrg.find(x => String(x.kode) === String(kode));
+    return b && (b.kat || '') !== t;
+  });
+  if(!barangBerubah.length) return alert('Semua barang yang dipilih sudah berada di kategori tujuan tersebut.');
+
+  if(!confirm(`Pindahkan ${barangBerubah.length} barang ke kategori "${t}"?`)) return;
+
+  if(db){
+    const batch = db.batch();
+    barangBerubah.forEach(kode => {
+      const ref = db.collection('barang').doc(idBarangFirestore(kode));
+      batch.update(ref, { kat: t });
+    });
+    await batch.commit();
+  } else {
+    barangBerubah.forEach(kode => {
+      const b = dbBrg.find(x => String(x.kode) === String(kode));
+      if(b) b.kat = t;
+    });
+    simpanCacheLokal(); refreshSemua();
+  }
+  alert(`${barangBerubah.length} barang berhasil dipindahkan ke kategori "${t}".`);
+  const keyword = document.getElementById('pkFilterKeyword');
+  if(keyword) keyword.value = '';
+  setupMenuPindahKategori();
+}
+
+/* CARI CEPAT & MENU 7 */
+function setupCariCepat(){ 
+  const sel = document.getElementById('ccFilterKat'); 
+  if(sel) sel.innerHTML = '<option value="">-- Semua Kategori --</option>' + daftarKategoriUrut().map(k => `<option value="${escapeHTML(k)}">${escapeHTML(k)}</option>`).join(''); 
+  cariCepatProses(); 
+}
+
+function cariCepatProses(){
+  const selKat = document.getElementById('ccFilterKat')?.value;
+  const kw = document.getElementById('ccKeyword')?.value.trim().toLowerCase();
+  const minH = angka(document.getElementById('ccHargaMin')?.value);
+  const maxHVal = document.getElementById('ccHargaMax')?.value;
+  const maxH = maxHVal?.trim() ? angka(maxHVal) : Infinity;
+
+  const tb = document.getElementById('tabelCariCepat'); if(!tb) return;
+  let hasil = dbBrg.filter(b => (!selKat || b.kat === selKat) && (!kw || (b.nama||'').toLowerCase().includes(kw) || (b.kode||'').toLowerCase().includes(kw)) && ((b.harga||0) >= minH && (b.harga||0) <= maxH));
+  if(!hasil.length){ tb.innerHTML = `<tr><td colspan="8" class="text-center" style="padding:10px;">Tidak ditemukan data</td></tr>`; return; }
+  
+  tb.innerHTML = hasil.map(b => `
+    <tr>
+      <td>${escapeHTML(b.kode)}</td>
+      <td>${escapeHTML(b.nama)}</td>
+      <td>${escapeHTML(b.kat||'-')}</td>
+      <td>Rp ${(b.harga||0).toLocaleString()}</td>
+      <td>Rp ${(b.hargaMeter||0).toLocaleString()}</td>
+      <td>Rp ${(b.hargaRoll||0).toLocaleString()}</td>
+      <td>${escapeHTML(b.ket||'')}</td>
+      <td class="kolom-aksi-admin"><button class="btn-warning aksi-sm" onclick="bukaUbahHargaDataDariLaporan('${encodeURIComponent(b.kode)}')">Ubah</button></td>
+    </tr>`).join('');
+}
+function resetCariCepat(){ document.getElementById('ccKeyword').value = ''; document.getElementById('ccHargaMin').value = ''; document.getElementById('ccHargaMax').value = ''; cariCepatProses(); }
+
+function isiFilterMenu7(){ const sel = document.getElementById('pilihKatMenu7'); if(sel) sel.innerHTML = '<option value="">-- Semua Kategori --</option>' + daftarKategoriUrut().map(k => `<option value="${escapeHTML(k)}">${escapeHTML(k)}</option>`).join(''); }
+function tampilTabelMenu7(){
+  const kat = document.getElementById('pilihKatMenu7')?.value, tb = document.getElementById('tabelMenu7'); if(!tb) return;
+  let data = kat ? dbBrg.filter(b => b.kat === kat) : dbBrg;
+  if(!data.length){ tb.innerHTML = `<tr><td colspan="8" class="text-center" style="padding:10px;">Tidak ada data</td></tr>`; return; }
+  tb.innerHTML = data.map(b => `
+    <tr>
+      <td>${escapeHTML(b.kode)}</td>
+      <td>${escapeHTML(b.nama)}</td>
+      <td>Rp ${(b.harga||0).toLocaleString()}</td>
+      <td>Rp ${(b.hargaMeter||0).toLocaleString()}</td>
+      <td>Rp ${(b.hargaRoll||0).toLocaleString()}</td>
+      <td>${escapeHTML(b.ket||'')}</td>
+      <td class="kolom-aksi-admin"><button class="btn-warning aksi-sm" onclick="bukaUbahHargaDataDariLaporan('${encodeURIComponent(b.kode)}')">Ubah</button></td>
+    </tr>`).join('');
+}
+
+/* ORDER BARANG & KABEL */
+function isItemKabel(o){
+  if(o.tipe === 'kabel') return true;
+  if(o.tipe === 'barang') return false;
+  const k = (o.ket || '').toUpperCase();
+  const n = (o.nama || '').toUpperCase();
+  return k.includes('ROLL') || k.includes('TOTAL:') || n.includes('KABEL');
+}
+
+function isiKat(){
+  const sel=document.getElementById('inKategori'); if(sel) sel.innerHTML='<option value="">-- Pilih --</option>'+daftarKategoriUrut().map(k=>`<option value="${escapeHTML(k)}">${escapeHTML(k)}</option>`).join('');
+  toggleJenisKabelInput();
+  const selOrd = document.getElementById('ordKategori');
+  if(selOrd) selOrd.innerHTML = '<option value="">-- Semua Kategori --</option>' + daftarKategoriUrut().map(k => `<option value="${escapeHTML(k)}">${escapeHTML(k)}</option>`).join('');
+}
+function filterOrdByKategori(){ pilihOrd = null; document.getElementById('infoOrd').innerHTML = ''; document.getElementById('ordNama').value = ''; }
+function cariOrdNama(){
+  const n=document.getElementById('ordNama').value.trim().toLowerCase(), kat=document.getElementById('ordKategori')?.value;
+  pilihOrd=dbBrg.find(b=>(b.nama||'').toLowerCase()===n && (!kat || b.kat === kat));
+  if(!pilihOrd) return alert('Barang tidak ditemukan!');
+  kosongkanKolomCari('ordNama');
+  infoOrd();
+}
+function infoOrd(){
+  const target = document.getElementById('infoOrd'); if(!target || !pilihOrd) return;
+  target.innerHTML = `<div style="border:2px solid #22c55e; border-radius:10px; padding:10px; background:#102b2a; color:#f8fafc; margin:8px 0;"><b>${escapeHTML(pilihOrd.kode)} · ${escapeHTML(pilihOrd.nama)}</b><div style="font-size:11px; color:#cbd5e1; margin-top:4px;">Satuan: Rp ${(pilihOrd.harga||0).toLocaleString()} | Meter: Rp ${(pilihOrd.hargaMeter||0).toLocaleString()}</div></div>`;
+}
+
+function cariOrdKabKode(){ const k=document.getElementById('ordKabKode').value.trim().toUpperCase(); pilihOrdKab=dbBrg.find(b=>b.kode===k); if(pilihOrdKab) { kosongkanKolomCari('ordKabKode','ordKabNama'); infoOrdKab(); } else alert('Tidak ditemukan!'); }
+function cariOrdKabNama(){ const n=document.getElementById('ordKabNama').value.trim().toLowerCase(); pilihOrdKab=dbBrg.find(b=>(b.nama||'').toLowerCase()===n); if(pilihOrdKab) { kosongkanKolomCari('ordKabKode','ordKabNama'); infoOrdKab(); } else alert('Tidak ditemukan!'); }
+function infoOrdKab(){ if(pilihOrdKab) { document.getElementById('infoOrdKab').innerHTML=`<div class="info-box"><b>${escapeHTML(pilihOrdKab.kode)}</b> - ${escapeHTML(pilihOrdKab.nama)}<br>Rp ${(pilihOrdKab.hargaMeter||0).toLocaleString()}/meter</div>`; hitungEstimasiKabel(); } }
+function toggleModeOrderKabel(){ const m = document.getElementById('ordKabMode').value; document.getElementById('groupModeMeter').style.display = m==='meter'?'block':'none'; document.getElementById('groupModeRoll').style.display = m==='meter'?'none':'block'; hitungEstimasiKabel(); }
+function hitungEstimasiKabel(){
+  const m = document.getElementById('ordKabMode').value; let r = "";
+  if(m === 'meter'){
+    const t = angka(document.getElementById('ordKabMeter').value);
+    if(t <= 0) r = "Masukkan meter valid";
+    else { const roll = Math.floor(t / 100), sisa = t % 100; r = `${roll > 0 ? roll + ' Roll ' : ''}${sisa > 0 ? '+ ' + sisa + 'm' : ''} (Total: ${t}m)`; }
+  } else {
+    const j = angka(document.getElementById('ordKabJmlRoll').value), isi = angka(document.getElementById('ordKabIsiRoll').value)||100, s = angka(document.getElementById('ordKabSisaMeter').value);
+    r = `${j} Roll (@${isi}m) ${s > 0 ? '+ ' + s + 'm' : ''} (Total: ${(j*isi)+s}m)`;
+  }
+  document.getElementById('ordKabHasilRangkuman').value = r.toUpperCase();
+}
+
+async function tambahOrder(){
+  if(!pilihOrd) return alert('Pilih barang dahulu!');
+  const toko = document.getElementById('ordToko').value.trim().toUpperCase();
+  const ket = document.getElementById('ordKet').value.trim().toUpperCase();
+  const stok = document.getElementById('ordStok').value.trim().toUpperCase();
+  const idDoc = 'ORD-' + Date.now();
+
+  const payload = {
+    id: idDoc,
+    toko: toko || 'STC SUMOBITO',
+    kode: pilihOrd.kode.toUpperCase(),
+    nama: pilihOrd.nama.toUpperCase(),
+    ket: ket,
+    stok: stok,
+    tipe: 'barang',
+    tgl: tgl(),
+    tglWaktu: Date.now()
+  };
+
+  if(db){
+    await db.collection('orders').doc(idDoc).set(payload);
+  } else {
+    dbOrder.unshift(payload); simpanCacheLokal(); tabelOrder();
+  }
+
+  document.getElementById('ordKet').value = '';
+  document.getElementById('ordStok').value = '0';
+  document.getElementById('infoOrd').innerHTML = '';
+  document.getElementById('ordNama').value = '';
+  pilihOrd = null;
+  alert('Barang berhasil dimasukkan ke daftar order!');
+}
+
+async function tambahOrderKabelOtomatis(){
+  if(!pilihOrdKab) return alert('Pilih kabel dahulu!');
+  const toko = document.getElementById('ordKabToko').value.trim().toUpperCase() || 'STC SUMOBITO';
+  const rangkuman = document.getElementById('ordKabHasilRangkuman').value.toUpperCase();
+  const catatan = document.getElementById('ordKabCatatan').value.trim().toUpperCase();
+  const stok = document.getElementById('ordKabStok').value.trim().toUpperCase() || 'READY';
+  const idDoc = 'ORD-KAB-' + Date.now();
+
+  const payload = {
+    id: idDoc,
+    toko: toko,
+    kode: pilihOrdKab.kode.toUpperCase(),
+    nama: pilihOrdKab.nama.toUpperCase(),
+    ket: catatan ? `${rangkuman} | Catatan: ${catatan}` : rangkuman,
+    stok: stok,
+    tipe: 'kabel',
+    tgl: tgl(),
+    tglWaktu: Date.now()
+  };
+
+  if(db){
+    await db.collection('orders').doc(idDoc).set(payload);
+  } else {
+    dbOrder.unshift(payload); simpanCacheLokal(); tabelOrder();
+  }
+
+  document.getElementById('ordKabNama').value = '';
+  document.getElementById('ordKabMeter').value = '';
+  document.getElementById('infoOrdKab').innerHTML = '';
+  pilihOrdKab = null;
+  alert('Kabel berhasil dimasukkan ke daftar order kabel!');
+}
+
+async function hapusOrderItemById(id){
+  if(confirm('Hapus item pesanan ini?')){
+    if(db) await db.collection('orders').doc(id).delete();
+    else { dbOrder = dbOrder.filter(o => o.id !== id); simpanCacheLokal(); tabelOrder(); }
+  }
+}
+
+async function kosongkanTabelOrder(kategori){
+  if(statusRoleAktif !== 'OWNER') return alert('Hanya pemilik yang dapat mengosongkan order!');
+  const isKabel = kategori === 'kabel';
+  if(confirm(`Kosongkan seluruh daftar order ${isKabel ? 'kabel' : 'barang umum'}?`)){
+    if(db){
+      const snap = await db.collection('orders').get();
+      const batch = db.batch();
+      snap.forEach(d => {
+        const item = d.data();
+        if(isKabel && isItemKabel(item)) batch.delete(d.ref);
+        else if(!isKabel && !isItemKabel(item)) batch.delete(d.ref);
+      });
+      await batch.commit();
+    } else {
+      if(isKabel) dbOrder = dbOrder.filter(o => !isItemKabel(o));
+      else dbOrder = dbOrder.filter(o => isItemKabel(o));
+      simpanCacheLokal(); tabelOrder();
+    }
+  }
+}
+
+function tabelOrder(){
+  const tbBarang = document.getElementById('tabelOrderBarang');
+  const tbKabel = document.getElementById('tabelOrderKabel');
+  const listBarang = dbOrder.filter(o => !isItemKabel(o));
+  const listKabel = dbOrder.filter(o => isItemKabel(o));
+
+  if(tbBarang){
+    if(!listBarang.length){
+      tbBarang.innerHTML = `<tr><td colspan="6" class="text-center" style="color:#94a3b8; padding:10px;">Belum ada order barang umum</td></tr>`;
+    } else {
+      tbBarang.innerHTML = listBarang.map(o => `
+        <tr>
+          <td><b>${escapeHTML(o.toko||'-')}</b></td>
+          <td>${escapeHTML(o.kode||'')}</td>
+          <td>${escapeHTML(o.nama||'')}</td>
+          <td>${escapeHTML(o.ket||'-')}</td>
+          <td>${escapeHTML(o.stok||'0')}</td>
+          <td><button class="btn-danger aksi-sm" onclick="hapusOrderItemById('${o.id}')">Hapus</button></td>
+        </tr>`).join('');
+    }
+  }
+
+  if(tbKabel){
+    if(!listKabel.length){
+      tbKabel.innerHTML = `<tr><td colspan="6" class="text-center" style="color:#94a3b8; padding:10px;">Belum ada order khusus kabel</td></tr>`;
+    } else {
+      tbKabel.innerHTML = listKabel.map(o => `
+        <tr>
+          <td><b>${escapeHTML(o.toko||'-')}</b></td>
+          <td>${escapeHTML(o.kode||'')}</td>
+          <td><span style="color:#34d399; font-weight:700;">${escapeHTML(o.nama||'')}</span></td>
+          <td>${escapeHTML(o.ket||'-')}</td>
+          <td>${escapeHTML(o.stok||'0')}</td>
+          <td><button class="btn-danger aksi-sm" onclick="hapusOrderItemById('${o.id}')">Hapus</button></td>
+        </tr>`).join('');
+    }
+  }
+}
+
+/* MUTASI & RETURN */
+function tukarPosisiMutasi(){ const a = document.getElementById('mutAsal'), b = document.getElementById('mutTujuan'), tmp = a.value; a.value = b.value; b.value = tmp; }
+function cariMutKode(){ const k=document.getElementById('mutKode').value.trim().toUpperCase(); pilihMut=dbBrg.find(b=>b.kode===k); if(pilihMut) { kosongkanKolomCari('mutKode','mutNama'); infoMut(); } else alert('Tidak ditemukan!'); }
+function cariMutNama(){ const n=document.getElementById('mutNama').value.trim().toLowerCase(); pilihMut=dbBrg.find(b=>(b.nama||'').toLowerCase()===n); if(pilihMut) { kosongkanKolomCari('mutKode','mutNama'); infoMut(); } else alert('Tidak ditemukan!'); }
+function infoMut(){ if(pilihMut) document.getElementById('infoMut').innerHTML=`<div class="info-box"><b>${escapeHTML(pilihMut.kode)}</b> - ${escapeHTML(pilihMut.nama)}</div>`; }
+
+async function tambahMutasiItem(){
+  if(!pilihMut) return alert('Pilih barang dahulu!');
+  const qty = document.getElementById('mutQty').value.trim().toUpperCase();
+  if(!qty) return alert('Masukkan jumlah!');
+  const idDoc = 'MUT-' + Date.now();
+  const payload = { id: idDoc, kode: pilihMut.kode, nama: pilihMut.nama, qty: qty, ket: document.getElementById('mutKet').value || '-', tgl: tgl(), tglWaktu: Date.now() };
+
+  if(db) await db.collection('mutasi').doc(idDoc).set(payload);
+  else { dbMutasi.unshift(payload); simpanCacheLokal(); tabelMutasi(); }
+  alert('Item mutasi dicatat!');
+}
+function tabelMutasi(){ 
+  const tb = document.getElementById('tabelMutasi'); 
+  if(tb) tb.innerHTML = dbMutasi.map((m)=>`
+    <tr>
+      <td>${escapeHTML(m.kode)}</td>
+      <td>${escapeHTML(m.nama)}</td>
+      <td>${escapeHTML(m.qty)}</td>
+      <td>${escapeHTML(m.ket)}</td>
+      <td class="kolom-aksi-admin"><button class="btn-danger aksi-sm" onclick="hapusMutasiItem('${m.id}')">Hapus</button></td>
+    </tr>`).join(''); 
+}
+async function hapusMutasiItem(id){
+  if(db) await db.collection('mutasi').doc(id).delete();
+  else { dbMutasi = dbMutasi.filter(m => m.id !== id); simpanCacheLokal(); tabelMutasi(); }
+}
+async function kosongkanMutasi(){
+  if(statusRoleAktif !== 'OWNER') return alert('Hanya pemilik yang dapat mengosongkan mutasi!');
+  if(confirm('Kosongkan semua daftar mutasi?')){
+    if(db){
+      const snap = await db.collection('mutasi').get();
+      const batch = db.batch(); snap.forEach(d => batch.delete(d.ref)); await batch.commit();
+    } else { dbMutasi=[]; simpanCacheLokal(); tabelMutasi(); }
+  }
+}
+
+function tukarPosisiReturn(){ const a = document.getElementById('retAsal'), b = document.getElementById('retTujuan'), tmp = a.value; a.value = b.value; b.value = tmp; }
+function cariRetKode(){ const k=document.getElementById('retKode').value.trim().toUpperCase(); pilihRet=dbBrg.find(b=>b.kode===k); if(pilihRet) { kosongkanKolomCari('retKode','retNama'); infoRet(); } else alert('Tidak ditemukan!'); }
+function cariRetNama(){ const n=document.getElementById('retNama').value.trim().toLowerCase(); pilihRet=dbBrg.find(b=>(b.nama||'').toLowerCase()===n); if(pilihRet) { kosongkanKolomCari('retKode','retNama'); infoRet(); } else alert('Tidak ditemukan!'); }
+function infoRet(){ if(pilihRet) document.getElementById('infoRet').innerHTML=`<div class="info-box"><b>${escapeHTML(pilihRet.kode)}</b> - ${escapeHTML(pilihRet.nama)}</div>`; }
+
+async function tambahReturn(){
+  if(!pilihRet) return alert('Pilih barang dahulu!');
+  const qty = document.getElementById('retQty').value.trim().toUpperCase(), alasan = document.getElementById('retAlasan').value.trim().toUpperCase();
+  if(!qty || !alasan) return alert('Lengkapi jumlah dan alasan retur!');
+  const idDoc = 'RET-' + Date.now();
+  const payload = { id: idDoc, tokoAsal: document.getElementById('retAsal').value, kode: pilihRet.kode, nama: pilihRet.nama, qty: qty, alasan: alasan, tgl: tgl(), tglWaktu: Date.now() };
+
+  if(db) await db.collection('returns').doc(idDoc).set(payload);
+  else { dbReturn.unshift(payload); simpanCacheLokal(); tabelReturn(); }
+  alert('Item return dicatat!');
+}
+function tabelReturn(){ 
+  const tb=document.getElementById('tabelReturn'); 
+  if(tb) tb.innerHTML=dbReturn.map((r)=>`
+    <tr>
+      <td>${escapeHTML(r.tokoAsal)}</td>
+      <td>${escapeHTML(r.kode)}</td>
+      <td>${escapeHTML(r.nama)}</td>
+      <td>${escapeHTML(r.qty)}</td>
+      <td>${escapeHTML(r.alasan)}</td>
+      <td class="kolom-aksi-admin"><button class="btn-danger aksi-sm" onclick="hapusReturnItem('${r.id}')">Hapus</button></td>
+    </tr>`).join(''); 
+}
+async function hapusReturnItem(id){
+  if(db) await db.collection('returns').doc(id).delete();
+  else { dbReturn = dbReturn.filter(r => r.id !== id); simpanCacheLokal(); tabelReturn(); }
+}
+async function kosongkanReturn(){
+  if(statusRoleAktif !== 'OWNER') return alert('Hanya pemilik yang dapat mengosongkan return!');
+  if(confirm('Kosongkan semua daftar return?')){
+    if(db){
+      const snap = await db.collection('returns').get();
+      const batch = db.batch(); snap.forEach(d => batch.delete(d.ref)); await batch.commit();
+    } else { dbReturn=[]; simpanCacheLokal(); tabelReturn(); }
+  }
+}
+
+/* PENJUALAN */
+function hitungSubtotalJual(){ const h=(pilihJual?.harga||0)*angka(document.getElementById('jualQty').value||1); document.getElementById('jualSubtotal').value=h.toLocaleString(); }
+function cariJualKode(){ pilihJual=dbBrg.find(b=>b.kode===document.getElementById('jualKode').value.trim().toUpperCase()); if(pilihJual) kosongkanKolomCari('jualKode','jualNama'); hitungSubtotalJual(); }
+function cariJualNama(){ pilihJual=dbBrg.find(b=>(b.nama||'').toLowerCase()===document.getElementById('jualNama').value.trim().toLowerCase()); if(pilihJual) kosongkanKolomCari('jualKode','jualNama'); hitungSubtotalJual(); }
+
+async function tambahPenjualanHariIni(){
+  if(!pilihJual) return alert('Pilih barang dahulu!');
+  const idDoc = 'JUAL-' + Date.now();
+  const qtyJual = angka(document.getElementById('jualQty').value);
+  const subtotalJual = angka(document.getElementById('jualSubtotal').value);
+  if(qtyJual <= 0 || subtotalJual <= 0) return alert('Jumlah dan subtotal penjualan harus lebih dari nol.');
+  const payload = { id: idDoc, kode: pilihJual.kode, nama: pilihJual.nama, qty: qtyJual, subtotal: subtotalJual, tgl: tgl(), tglWaktu: Date.now() };
+
+  if(db) await db.collection('penjualan').doc(idDoc).set(payload);
+  else { dbPenjualanHariIni.unshift(payload); simpanCacheLokal(); tabelPenjualanHariIni(); hitungTotalPenjualan(); }
+
+  document.getElementById('jualKode').value=''; document.getElementById('jualNama').value=''; document.getElementById('jualQty').value='1'; document.getElementById('jualSubtotal').value='0'; pilihJual=null;
+}
+function tabelPenjualanHariIni(){ 
+  const tb=document.getElementById('tabelPenjualanHariIni'); 
+  if(tb) tb.innerHTML=dbPenjualanHariIni.map((j)=>`
+    <tr>
+      <td>${escapeHTML(j.kode)}</td>
+      <td>${escapeHTML(j.nama)}</td>
+      <td>${escapeHTML(j.qty)}</td>
+      <td>Rp ${(j.subtotal||0).toLocaleString()}</td>
+      <td><button class="btn-danger aksi-sm" onclick="hapusPenjualanItem(decodeURIComponent('${encodeURIComponent(j.id)}'))">Hapus</button></td>
+    </tr>`).join(''); 
+}
+async function hapusPenjualanItem(id){
+  if(db) await db.collection('penjualan').doc(id).delete();
+  else { dbPenjualanHariIni = dbPenjualanHariIni.filter(j => j.id !== id); simpanCacheLokal(); tabelPenjualanHariIni(); hitungTotalPenjualan(); }
+}
+function hitungTotalPenjualan(){ const t=dbPenjualanHariIni.reduce((s,x)=>s+(x.subtotal||0),0); const el=document.getElementById('displayTotalPenjualan'); if(el) el.innerText=`Rp ${t.toLocaleString()}`; }
+async function kosongkanPenjualanHariIni(){ 
+  if(confirm('Bersihkan seluruh daftar transaksi kasir hari ini?')){ 
+    if(db){
+      const snap = await db.collection('penjualan').get();
+      const batch = db.batch(); snap.forEach(d => batch.delete(d.ref)); await batch.commit();
+    } else { dbPenjualanHariIni=[]; simpanCacheLokal(); tabelPenjualanHariIni(); hitungTotalPenjualan(); }
+  } 
+}
+
+/* ANGSURAN */
+function hitungSisaAngsuranAwal(){
+  const s = angka(document.getElementById('angTotalHarga').value) - angka(document.getElementById('angUangMuka').value);
+  const el = document.getElementById('angSisaAwal');
+  if(el) el.value = (s > 0 ? s : 0).toLocaleString();
+}
+async function simpanAngsuranBaru(){
+  const pembeli = document.getElementById('angPembeli').value.trim();
+  const barang = document.getElementById('angBarangNama').value.trim();
+  const total = angka(document.getElementById('angTotalHarga').value);
+  const dp = angka(document.getElementById('angUangMuka').value);
+  if(!pembeli || total <= 0) return alert('Lengkapi nama pembeli dan nominal total deal!');
+  if(dp < 0 || dp > total) return alert('Uang muka tidak boleh melebihi total harga.');
+
+  const idDoc = 'ANG-' + Date.now();
+  const payload = { 
+    id: idDoc, pembeli: pembeli.toUpperCase(), barangNama: barang.toUpperCase(),
+    totalHarga: total, dp: dp, totalBayar: dp, tglDibuat: tgl(), tglWaktu: Date.now() 
+  };
+
+  if(db) await db.collection('angsuran').doc(idDoc).set(payload);
+  else { dbAngsuran.unshift(payload); simpanCacheLokal(); tabelAngsuran(); }
+
+  document.getElementById('angPembeli').value=''; document.getElementById('angBarangNama').value='';
+  document.getElementById('angTotalHarga').value=''; document.getElementById('angUangMuka').value='';
+  document.getElementById('angSisaAwal').value='0';
+  alert('Data angsuran tersimpan!');
+}
+async function bayarCicilan(id){
+  const a = dbAngsuran.find(x => x.id === id);
+  if(!a) return;
+  const sisa = a.totalHarga - a.totalBayar;
+  if(sisa <= 0) return alert('Angsuran ini sudah LUNAS!');
+
+  const bayarStr = prompt(`Masukkan jumlah pembayaran cicilan untuk ${a.pembeli} (Sisa: Rp ${sisa.toLocaleString()}):`);
+  if(!bayarStr) return;
+  const bayarNominal = angka(bayarStr);
+  if(bayarNominal <= 0) return alert('Nominal pembayaran tidak valid!');
+  if(bayarNominal > sisa) return alert('Pembayaran melebihi sisa angsuran.');
+
+  const totalBaru = a.totalBayar + bayarNominal;
+  if(db) await db.collection('angsuran').doc(id).update({ totalBayar: totalBaru });
+  else { a.totalBayar = totalBaru; simpanCacheLokal(); tabelAngsuran(); }
+
+  alert(`Pembayaran Rp ${bayarNominal.toLocaleString()} dicatat! Sisa: Rp ${(a.totalHarga - totalBaru > 0 ? a.totalHarga - totalBaru : 0).toLocaleString()}`);
+}
+async function hapusAngsuranItem(id){
+  if(confirm('Hapus riwayat angsuran ini?')){
+    if(db) await db.collection('angsuran').doc(id).delete();
+    else { dbAngsuran = dbAngsuran.filter(a => a.id !== id); simpanCacheLokal(); tabelAngsuran(); }
+  }
+}
+function tabelAngsuran(){
+  const tb = document.getElementById('tabelAngsuranBody'); if(!tb) return;
+  if(!dbAngsuran.length){
+    tb.innerHTML = `<tr><td colspan="9" class="text-center" style="padding:10px; color:#94a3b8;">Belum ada data angsuran</td></tr>`;
+    return;
+  }
+  tb.innerHTML = dbAngsuran.map((a, i) => {
+    const sisa = a.totalHarga - a.totalBayar;
+    const isLunas = sisa <= 0;
+    return `<tr>
+      <td>${i+1}</td>
+      <td>${escapeHTML(a.tglDibuat || '-')}</td>
+      <td><b>${escapeHTML(a.pembeli)}</b></td>
+      <td>${escapeHTML(a.barangNama)}</td>
+      <td>Rp ${(a.totalHarga||0).toLocaleString()}</td>
+      <td>Rp ${(a.dp||0).toLocaleString()}</td>
+      <td style="color:${isLunas?'#34d399':'#f87171'}; font-weight:700;">Rp ${(sisa>0?sisa:0).toLocaleString()}</td>
+      <td><span style="background:${isLunas?'#059669':'#d97706'}; color:#fff; padding:2px 6px; border-radius:4px; font-weight:700; font-size:10px;">${isLunas?'LUNAS':'BELUM'}</span></td>
+      <td>
+        <div style="display:flex; gap:4px;">
+          ${!isLunas ? `<button class="btn-success aksi-sm" onclick="bayarCicilan(decodeURIComponent('${encodeURIComponent(a.id)}'))">Bayar</button>` : ''}
+          <button class="btn-danger aksi-sm" onclick="hapusAngsuranItem(decodeURIComponent('${encodeURIComponent(a.id)}'))">Hapus</button>
+        </div>
+      </td>
+    </tr>`;
+  }).join('');
+}
+
+/* PENGATURAN TOKO & PENJAGA */
+function muatFormPengaturan(){ document.getElementById('setNamaToko').value=configApp.namaToko||''; document.getElementById('setNamaCabang').value=configApp.namaCabang||''; document.getElementById('setAlamatToko').value=configApp.alamatToko||''; }
+async function simpanPengaturanUmum(){ 
+  if(statusRoleAktif !== 'OWNER') return alert('Khusus OWNER.');
+  configApp.namaCabang=document.getElementById('namaCabang').value; 
+  if(db) await db.collection('pengaturan').doc('umum').set({ configApp, petugasJagaAktif }, { merge: true });
+  else simpanCacheLokal();
+}
+async function simpanPengaturanLengkap(){ 
+  if(statusRoleAktif !== 'OWNER') return alert('Khusus OWNER.');
+  configApp.namaToko=document.getElementById('setNamaToko').value; 
+  configApp.namaCabang=document.getElementById('setNamaCabang').value; 
+  configApp.alamatToko=document.getElementById('setAlamatToko').value; 
+  if(db) await db.collection('pengaturan').doc('umum').set({ configApp, petugasJagaAktif }, { merge: true });
+  else simpanCacheLokal();
+  applyPengaturanUI(); 
+  alert('Pengaturan toko diperbarui!'); 
+}
+async function simpanPenjagaAktif(){ 
+  if(statusRoleAktif !== 'OWNER') return alert('Khusus OWNER.');
+  petugasJagaAktif={ shift: document.getElementById('pilihShiftPenjaga').value, nama: document.getElementById('pilihNamaPenjaga').value }; 
+  if(db) await db.collection('pengaturan').doc('umum').set({ configApp, petugasJagaAktif }, { merge: true });
+  else simpanCacheLokal();
+  alert('Petugas jaga aktif ditetapkan!'); 
+}
+
+/* BACKUP & RESTORE DATA — FREE-FIRST SAFE MODE */
+function buatPayloadBackup(){
+  const createdAt = new Date().toISOString();
+  return {
+    app: 'STC SUMOBITO',
+    schemaVersion: 2,
+    createdAt,
+    backupType: 'client-export',
+    counts: {
+      kategori: Array.isArray(dbKat) ? dbKat.length : 0,
+      barang: Array.isArray(dbBrg) ? dbBrg.length : 0,
+      orders: Array.isArray(dbOrder) ? dbOrder.length : 0,
+      mutasi: Array.isArray(dbMutasi) ? dbMutasi.length : 0,
+      returns: Array.isArray(dbReturn) ? dbReturn.length : 0,
+      penjualan: Array.isArray(dbPenjualanHariIni) ? dbPenjualanHariIni.length : 0,
+      angsuran: Array.isArray(dbAngsuran) ? dbAngsuran.length : 0
+    },
+    dbKat, dbBrg, dbOrder, dbMutasi, dbReturn, dbPenjualanHariIni, dbAngsuran,
+    configApp, petugasJagaAktif
+  };
+}
+function unduhPayloadBackup(payload, prefix='STC_Backup'){
+  const json = JSON.stringify(payload, null, 2);
+  const blob = new Blob([json], {type:'application/json;charset=utf-8'});
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement('a');
+  const stamp = new Date().toISOString().replace(/[:.]/g,'-');
+  a.href = url;
+  a.download = `${prefix}_${stamp}.json`;
+  document.body.appendChild(a);
+  a.click();
+  a.remove();
+  setTimeout(() => URL.revokeObjectURL(url), 1500);
+}
+function unduhBackup(){
+  if(statusRoleAktif !== 'OWNER') return alert('Backup hanya dapat dibuat oleh OWNER.');
+  try {
+    const payload = buatPayloadBackup();
+    unduhPayloadBackup(payload);
+    const info = document.getElementById('backupInfo');
+    if(info) info.textContent = `File backup disiapkan: ${new Date(payload.createdAt).toLocaleString('id-ID')} • ${Object.values(payload.counts).reduce((a,b)=>a+b,0)} item pada 7 kelompok data.`;
+  } catch(err) {
+    alert('Backup gagal dibuat: ' + (err && err.message ? err.message : err));
+  }
+}
+function buatSnapshotSebelumPulih(){
+  const payload = buatPayloadBackup();
+  unduhPayloadBackup(payload, 'STC_Snapshot_Sebelum_Pemulihan');
+  return payload;
+}
+
+async function prosesPulih(e){
+  if(statusRoleAktif !== 'OWNER') { alert('Pemulihan data hanya dapat dilakukan oleh OWNER.'); return; }
+  const file = e && e.target && e.target.files && e.target.files[0];
+  if(!file) return;
+  if(file.size > 20 * 1024 * 1024) {
+    alert('File backup lebih dari 20 MB. Pemulihan dibatalkan demi keamanan dan kestabilan browser.');
+    if(e && e.target) e.target.value='';
+    return;
+  }
+  const reader = new FileReader();
+  reader.onload = async function(ev){
+    try {
+      const data = JSON.parse(ev.target.result);
+      if(data.app && data.app !== 'STC SUMOBITO') throw new Error('File ini bukan backup STC SUMOBITO.');
+      if(data.schemaVersion && Number(data.schemaVersion) > 2) throw new Error('Versi backup lebih baru daripada versi aplikasi ini.');
+      const arrayKeys = ['dbKat','dbBrg','dbOrder','dbMutasi','dbReturn','dbPenjualanHariIni','dbAngsuran'];
+      for(const key of arrayKeys){
+        if(data[key] !== undefined && !Array.isArray(data[key])) throw new Error('Format ' + key + ' harus berupa daftar.');
+      }
+      const next = {
+        dbKat: data.dbKat || [], dbBrg: data.dbBrg || [], dbOrder: data.dbOrder || [],
+        dbMutasi: data.dbMutasi || [], dbReturn: data.dbReturn || [], dbPenjualanHariIni: data.dbPenjualanHariIni || [],
+        dbAngsuran: data.dbAngsuran || [], configApp: data.configApp || configApp,
+        petugasJagaAktif: data.petugasJagaAktif || petugasJagaAktif
+      };
+      if(next.dbBrg.some(x => !x || !x.kode) || next.dbOrder.some(x => !x || !x.id) ||
+         next.dbMutasi.some(x => !x || !x.id) || next.dbReturn.some(x => !x || !x.id) ||
+         next.dbPenjualanHariIni.some(x => !x || !x.id) || next.dbAngsuran.some(x => !x || !x.id)) {
+        throw new Error('Ada data yang tidak memiliki kode/ID dokumen. Tidak ada data yang diubah.');
+      }
+      const total = arrayKeys.reduce((sum,key)=>sum+(next[key]||[]).length,0);
+      const sourceDate = data.createdAt ? new Date(data.createdAt).toLocaleString('id-ID') : 'tanggal tidak tercatat';
+      if(!confirm(`Periksa file backup:\\nTanggal: ${sourceDate}\\nTotal item: ${total}\\n\\nSebelum pemulihan, sistem akan mengunduh snapshot data saat ini. Pastikan browser mengizinkan unduhan. Lanjutkan?`)) return;
+
+      // Auto-snapshot is a safety net before restore; it is not a scheduled cloud backup.
+      buatSnapshotSebelumPulih();
+      if(!confirm('Snapshot sebelum pemulihan sudah diminta untuk diunduh. Lanjutkan pemulihan? Pastikan file STC_Snapshot_Sebelum_Pemulihan tersimpan.')) return;
+
+      if(db){
+        const jobs = [];
+        next.dbKat.forEach(k => {
+          if(typeof k === 'string' && k.trim()) jobs.push({col:'kategori', id:idKategoriFirestore(k), data:{nama:k, dibuat:tgl()}});
+          else if(k && typeof k === 'object' && (k.nama || k.id)) {
+            const nama = String(k.nama || k.id);
+            jobs.push({col:'kategori', id:idKategoriFirestore(nama), data:k});
+          }
+        });
+        next.dbBrg.forEach(x => jobs.push({col:'barang', id:idBarangFirestore(String(x.kode)), data:x}));
+        next.dbOrder.forEach(x => jobs.push({col:'orders', id:String(x.id), data:x}));
+        next.dbMutasi.forEach(x => jobs.push({col:'mutasi', id:String(x.id), data:x}));
+        next.dbReturn.forEach(x => jobs.push({col:'returns', id:String(x.id), data:x}));
+        next.dbPenjualanHariIni.forEach(x => jobs.push({col:'penjualan', id:String(x.id), data:x}));
+        next.dbAngsuran.forEach(x => jobs.push({col:'angsuran', id:String(x.id), data:x}));
+        jobs.push({col:'pengaturan', id:'umum', data:{configApp:next.configApp, petugasJagaAktif:next.petugasJagaAktif}});
+        // Firestore batch limit 500; 350 gives room for safety.
+        for(let i=0; i<jobs.length; i+=350){
+          const batch = db.batch();
+          jobs.slice(i, i+350).forEach(job => batch.set(db.collection(job.col).doc(job.id), job.data, {merge:true}));
+          await batch.commit();
+        }
+      }
+      dbKat=next.dbKat; dbBrg=next.dbBrg; dbOrder=next.dbOrder; dbMutasi=next.dbMutasi;
+      dbReturn=next.dbReturn; dbPenjualanHariIni=next.dbPenjualanHariIni; dbAngsuran=next.dbAngsuran;
+      configApp=next.configApp; petugasJagaAktif=next.petugasJagaAktif;
+      simpanCacheLokal(); refreshSemua();
+      alert('Pemulihan selesai. Dokumen pada backup diproses. Dokumen yang tidak ada di backup tidak dihapus. Periksa data utama sebelum operasional.');
+    } catch(err){ alert('Pemulihan dibatalkan: ' + err.message); }
+    finally { if(e && e.target) e.target.value=''; }
+  };
+  reader.onerror = () => { alert('File backup tidak dapat dibaca.'); if(e && e.target) e.target.value=''; };
+  reader.readAsText(file);
+}
+
+/* GENERATOR CETAK PDF & SURAT JALAN */
+const pdfConfigStyles = { lineColor: [0, 0, 0], lineWidth: 0.35, textColor: [0, 0, 0] };
+
+function cetakOrderPDF(kategori){
+  const isKabel = kategori === 'kabel';
+  const filterTokoId = isKabel ? 'filterCetakOrdTokoKabel' : 'filterCetakOrdTokoBarang';
+  const filterToko = document.getElementById(filterTokoId)?.value || 'SEMUA';
+  let dataOrder = dbOrder.filter(o => isKabel ? isItemKabel(o) : !isItemKabel(o));
+
+  if(filterToko && filterToko !== 'SEMUA'){
+    dataOrder = dataOrder.filter(o => (o.toko || '').toUpperCase() === filterToko);
+  }
+
+  if(!dataOrder.length) return alert(`Tidak ada pesanan order ${isKabel ? 'kabel' : 'barang'} tercatat untuk ${filterToko}!`);
+
+  const { jsPDF } = window.jspdf;
+  const doc = new jsPDF({ orientation: 'portrait', unit: 'mm', format: 'a4' });
+  const pageWidth = doc.internal.pageSize.getWidth();
+  const cabangPemesan = filterToko !== 'SEMUA' ? filterToko : document.getElementById('namaCabang').value.toUpperCase();
+
+  let currentY = 15;
+  doc.setFont("helvetica", "bold"); doc.setFontSize(14);
+  doc.text(configApp.namaToko || "SIAP TEKNIK COLDSTORAGE", pageWidth / 2, currentY, { align: "center" });
+  currentY += 6;
+
+  doc.setFontSize(12);
+  const judulSurat = isKabel ? "SURAT PERMINTAAN ORDER KHUSUS KABEL" : "SURAT PERMINTAAN ORDER BARANG UMUM";
+  doc.text(judulSurat, pageWidth / 2, currentY, { align: "center" });
+  currentY += 5;
+
+  doc.setFont("helvetica", "normal"); doc.setFontSize(9);
+  doc.text(`No. Surat: ORD/${isKabel ? 'KAB' : 'BRG'}/${Date.now().toString().slice(-6)}/STC  |  Tanggal: ${tgl()}`, pageWidth / 2, currentY, { align: "center" });
+  currentY += 5;
+  doc.text(`Toko Pemesan: ${cabangPemesan}  |  Petugas: ${getPetugasJagaTag()}`, pageWidth / 2, currentY, { align: "center" });
+  currentY += 7;
+
+  const headerTabel = isKabel 
+    ? [['No', 'Toko Pemesan', 'Kode', 'Jenis Kabel', 'Rincian Roll & Total Meter', 'Stok Toko']]
+    : [['No', 'Toko Pemesan', 'Kode', 'Nama Barang', 'Jumlah / Keterangan', 'Stok Toko']];
+
+  const rows = dataOrder.map((o, i) => [
+    i + 1, (o.toko || '-').toUpperCase(), o.kode.toUpperCase(), o.nama.toUpperCase(), (o.ket || '-').toUpperCase(), (o.stok || '0').toUpperCase()
+  ]);
+
+  doc.autoTable({
+    startY: currentY, head: headerTabel, body: rows, theme: 'grid',
+    headStyles: { fillColor: isKabel ? [4, 120, 87] : [29, 78, 216], textColor: [255, 255, 255], fontStyle: 'bold' },
+    styles: pdfConfigStyles
+  });
+
+  let finalY = doc.lastAutoTable.finalY + 14;
+  if (finalY > 235) { doc.addPage(); finalY = 25; }
+  doc.setFontSize(9); doc.setFont("helvetica", "normal");
+  doc.text(`Pemohon / Pemesan (${cabangPemesan}),`, 45, finalY, { align: "center" });
+  doc.text("( ________________________ )", 45, finalY + 22, { align: "center" });
+  doc.text(`Menyetujui (Pusat / Owner),`, 165, finalY, { align: "center" });
+  doc.text("( ________________________ )", 165, finalY + 22, { align: "center" });
+
+  doc.save(`Surat_Order_${isKabel ? 'Kabel' : 'Barang'}_${cabangPemesan.replace(/[^a-zA-Z0-9]/g, '_')}_${Date.now()}.pdf`);
+}
+
+function cetakSuratJalanPDF(){
+  if(!dbMutasi.length) return alert('Tidak ada data barang mutasi untuk dicetak!');
+  const asal = document.getElementById('mutAsal').value;
+  const tujuan = document.getElementById('mutTujuan').value;
+  const { jsPDF } = window.jspdf;
+  const doc = new jsPDF({ orientation: 'portrait', unit: 'mm', format: 'a4' });
+  const pw = doc.internal.pageSize.getWidth();
+  
+  doc.setFont("helvetica", "bold"); doc.setFontSize(14);
+  doc.text(configApp.namaToko || "SIAP TEKNIK COLDSTORAGE", pw / 2, 15, { align: "center" });
+  doc.setFontSize(12);
+  doc.text("SURAT JALAN PENGIRIMAN MUTASI BARANG", pw / 2, 21, { align: "center" });
+  doc.setFont("helvetica", "normal"); doc.setFontSize(9);
+  doc.text(`No: SJ/MUT/${Date.now().toString().slice(-6)} | Tanggal: ${tgl()}`, pw / 2, 26, { align: "center" });
+  doc.text(`Toko Asal: ${asal}  ===>  Toko Tujuan: ${tujuan}`, pw / 2, 31, { align: "center" });
+  
+  const rows = dbMutasi.map((m, i) => [i + 1, m.kode, m.nama, m.qty, m.ket || '-']);
+  doc.autoTable({
+    startY: 36, head: [['No', 'Kode Barang', 'Nama Barang', 'Jumlah Mutasi', 'Keterangan']], body: rows, theme: 'grid',
+    headStyles: { fillColor: [37, 99, 235], textColor: [255, 255, 255], fontStyle: 'bold' },
+    styles: pdfConfigStyles
+  });
+  
+  let finalY = doc.lastAutoTable.finalY + 15;
+  if(finalY > 240) { doc.addPage(); finalY = 25; }
+  doc.setFontSize(9);
+  doc.text(`Pengirim (${asal}),`, 45, finalY, { align: "center" });
+  doc.text("( ________________________ )", 45, finalY + 22, { align: "center" });
+  doc.text(`Penerima (${tujuan}),`, 165, finalY, { align: "center" });
+  doc.text("( ________________________ )", 165, finalY + 22, { align: "center" });
+  
+  doc.save(`Surat_Jalan_Mutasi_${asal}_ke_${tujuan}_${Date.now()}.pdf`);
+}
+
+function cetakReturnPDF(){
+  if(!dbReturn.length) return alert('Tidak ada daftar retur barang untuk dicetak!');
+  const asal = document.getElementById('retAsal').value;
+  const tujuan = document.getElementById('retTujuan').value;
+  const { jsPDF } = window.jspdf;
+  const doc = new jsPDF({ orientation: 'portrait', unit: 'mm', format: 'a4' });
+  const pw = doc.internal.pageSize.getWidth();
+  
+  doc.setFont("helvetica", "bold"); doc.setFontSize(14);
+  doc.text(configApp.namaToko || "SIAP TEKNIK COLDSTORAGE", pw / 2, 15, { align: "center" });
+  doc.setFontSize(12);
+  doc.text("SURAT PENGEMBALIAN BARANG (RETURN)", pw / 2, 21, { align: "center" });
+  doc.setFont("helvetica", "normal"); doc.setFontSize(9);
+  doc.text(`No: RET/${Date.now().toString().slice(-6)} | Tanggal: ${tgl()}`, pw / 2, 26, { align: "center" });
+  doc.text(`Cabang Pengirim: ${asal}  ===>  Cabang Tujuan: ${tujuan}`, pw / 2, 31, { align: "center" });
+  
+  const rows = dbReturn.map((r, i) => [i + 1, r.tokoAsal || asal, r.kode, r.nama, r.qty, r.alasan]);
+  doc.autoTable({
+    startY: 36, head: [['No', 'Toko Asal', 'Kode', 'Nama Barang', 'Jumlah', 'Alasan Return']], body: rows, theme: 'grid',
+    headStyles: { fillColor: [220, 38, 38], textColor: [255, 255, 255], fontStyle: 'bold' },
+    styles: pdfConfigStyles
+  });
+  
+  let finalY = doc.lastAutoTable.finalY + 15;
+  if(finalY > 240) { doc.addPage(); finalY = 25; }
+  doc.setFontSize(9);
+  doc.text(`Petugas Return (${asal}),`, 45, finalY, { align: "center" });
+  doc.text("( ________________________ )", 45, finalY + 22, { align: "center" });
+  doc.text(`Penerima Gudang (${tujuan}),`, 165, finalY, { align: "center" });
+  doc.text("( ________________________ )", 165, finalY + 22, { align: "center" });
+  
+  doc.save(`Surat_Return_${asal}_${Date.now()}.pdf`);
+}
+
+function cetakPdfKategori(){
+  const kat = document.getElementById('pilihKatMenu7')?.value;
+  let data = kat ? dbBrg.filter(b => b.kat === kat) : dbBrg;
+  if(!data.length) return alert('Tidak ada data barang untuk dicetak!');
+  const { jsPDF } = window.jspdf;
+  // Jika katalog memuat barang kabel, gunakan landscape agar detail jenis dan ukuran terbaca.
+  const memuatKabel = data.some(b => kategoriAdalahKabel(b.kat));
+  const doc = new jsPDF({ orientation: memuatKabel ? 'landscape' : 'portrait', unit: 'mm', format: 'a4' });
+  const pw = doc.internal.pageSize.getWidth();
+  
+  doc.setFont("helvetica", "bold"); doc.setFontSize(14);
+  doc.text(configApp.namaToko || "SIAP TEKNIK COLDSTORAGE", pw / 2, 15, { align: "center" });
+  doc.setFontSize(11);
+  doc.text("KATALOG & DAFTAR KETERSEDIAAN BARANG", pw / 2, 21, { align: "center" });
+  doc.setFont("helvetica", "normal"); doc.setFontSize(9);
+  doc.text(`Kategori: ${kat || 'SEMUA KATEGORI'} | Tanggal: ${tgl()}`, pw / 2, 26, { align: "center" });
+  
+  const head = memuatKabel
+    ? ['No', 'Kode', 'Nama Barang', 'Jenis Kabel', 'Harga Satuan', 'Harga Meter', 'Harga Roll', 'Ket']
+    : ['No', 'Kode', 'Nama Barang', 'Harga Satuan', 'Harga Meter', 'Harga Roll', 'Ket'];
+  const rows = data.map((b, i) => {
+    const namaTampil = memuatKabel ? namaBarangDenganUkuran(b) : (b.nama || '');
+    const dasar = [
+      i + 1, b.kode, namaTampil,
+      'Rp ' + (b.harga || 0).toLocaleString('id-ID'),
+      'Rp ' + (b.hargaMeter || 0).toLocaleString('id-ID'),
+      'Rp ' + (b.hargaRoll || 0).toLocaleString('id-ID'), b.ket || '-'
+    ];
+    return memuatKabel
+      ? [i + 1, b.kode, namaTampil, (kategoriAdalahKabel(b.kat) ? (normalisasiJenisKabelLama(b.jenisKabel) || b.jenisKabel || '-') : '-'), ...dasar.slice(3)]
+      : dasar;
+  });
+  
+  doc.autoTable({
+    startY: 30, head: [head], body: rows, theme: 'grid',
+    headStyles: { fillColor: [4, 135, 96], textColor: [255, 255, 255], fontStyle: 'bold' },
+    styles: pdfConfigStyles,
+    ...(memuatKabel ? { columnStyles: { 0: { cellWidth: 10 }, 1: { cellWidth: 17 }, 2: { cellWidth: 65 }, 3: { cellWidth: 30 } } } : {})
+  });
+  doc.save(`Katalog_Barang_${kat ? kat.replace(/\s+/g,'_') : 'Semua'}_${Date.now()}.pdf`);
+}
+
+function cetakLangsungHTML(judulLaporan, idContainer) {
+  const cabang = document.getElementById('namaCabang').value.toUpperCase();
+  const el = document.getElementById(idContainer);
+  if(!el) return;
+
+  const jc = window.open('', '', 'height=600,width=800');
+  jc.document.write('<html><head><title>' + judulLaporan + '</title>');
+  jc.document.write('<style>body { font-family: Arial, sans-serif; padding: 20px; } table { width: 100%; border-collapse: collapse; margin-top: 10px; font-size: 12px; } th, td { border: 1px solid #000; padding: 8px; text-align: left; } th { background-color: #e2e8f0; } button, .aksi-sm, .kolom-aksi-admin { display: none !important; } </style>');
+  jc.document.write('</head><body>');
+  jc.document.write('<h2>' + escapeHTML(configApp.namaToko || 'STC') + '</h2><h3>' + escapeHTML(judulLaporan) + '</h3>');
+  jc.document.write('<p>Cabang: ' + escapeHTML(cabang) + ' | Tanggal: ' + escapeHTML(tgl()) + '</p>');
+  // Salin isi tabel tanpa tombol aksi; data teks sudah di-escape saat dirender.
+  const printClone = el.cloneNode(true);
+  printClone.querySelectorAll('button, .kolom-aksi-admin').forEach(n => n.remove());
+  jc.document.write(printClone.innerHTML);
+  jc.document.write('</body></html>');
+  jc.document.close();
+  jc.document.focus();
+  setTimeout(() => { jc.print(); jc.close(); }, 500);
+}
+
+/* CEGAH SUBMIT FORM ENTER OTOMATIS */
+document.addEventListener('keypress', function(e) {
+  if (e.key === 'Enter' && e.target.tagName === 'INPUT' && e.target.type !== 'textarea') {
+    if(!e.target.closest('.cari-grup')) {
+      e.preventDefault();
+    }
+  }
+});
+
+/* STATUS JARINGAN */
+window.addEventListener('offline', () => {
+  const b = document.getElementById('badgeCloudStatus');
+  if(b) { b.className = 'badge-cloud offline'; b.innerText = '🔴 Offline (Tanpa Internet)'; }
+});
+window.addEventListener('online', () => {
+  hubungkanRealtimeFirestore();
+});
+
+/* STARTUP */
+window.onload = function(){
+  if(!history.state || (!history.state.stcDashboard && !history.state.stcMenu)) {
+    history.replaceState({ stcDashboard: true }, '', location.pathname + location.search + '#dashboard');
+  }
+  setDeviceGate(false);
+  setBadgeCloud('🔄 Menghubungkan...');
+  muatLokal();
+  inisialisasiFirebase();
+};
+</script>
+</body>
+</html>
