@@ -1,0 +1,443 @@
+<!DOCTYPE html>
+<html lang="id">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+<title>STC SUMOBITO — CABANG</title>
+<meta name="description" content="STC Sumobito — panel CABANG">
+<link rel="manifest" href="../manifest.webmanifest">
+<link rel="stylesheet" href="../app.css">
+<script>window.STC_ENTRY_ROLE='CABANG';</script>
+<script defer src="https://cdnjs.cloudflare.com/ajax/libs/html2canvas/1.4.1/html2canvas.min.js"></script>
+<script defer src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
+<script defer src="https://cdnjs.cloudflare.com/ajax/libs/jspdf-autotable/3.5.31/jspdf.plugin.autotable.min.js"></script>
+<script src="https://www.gstatic.com/firebasejs/10.9.0/firebase-app-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/10.9.0/firebase-auth-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/10.9.0/firebase-firestore-compat.js"></script>
+</head>
+<body>
+
+
+<!-- MODAL LOGIN RAHASIA PEMILIK -->
+<div id="modalAuthOverlay">
+  <div class="auth-card" role="dialog" aria-modal="true" aria-labelledby="authTitle">
+    <div style="text-align: center; margin-bottom: 12px;">
+      <span style="font-size: 32px;">👑</span>
+      <h2 id="authTitle" style="font-size: 16px; color: #38bdf8; margin-top: 6px;">PANEL KENDALI PEMILIK</h2>
+      <p style="font-size: 11px; color: #94a3b8;">Masukkan akun pemilik untuk membuka seluruh kendali kontrol toko.</p>
+    </div>
+    <div class="form-group"><label>Email Pemilik</label><input type="email" id="authEmail" placeholder="stcjombang@gmail.com" style="text-transform:none;"></div>
+    <div class="form-group"><label>Password</label><input type="password" id="authPassword" placeholder="••••••••" style="text-transform:none;"></div>
+    <div id="authNotice" style="color: #f87171; font-size: 11px; line-height: 1.4; margin-bottom: 10px; display: none;"></div>
+    <div class="tombol-baris">
+      <button class="btn-success" id="btnAuthLogin" onclick="prosesLoginFirebase()">Buka Kendali Penuh</button>
+      <button class="btn-danger" onclick="tutupModalLogin()">Batal</button>
+    </div>
+  </div>
+</div>
+
+<!-- HEADER UTAMA -->
+<div class="header">
+  <h1 id="headerJudulToko" title="Akses admin tersembunyi">SIAP TEKNIK COLDSTORAGE</h1>
+  <div class="cabang-edit">
+    <input type="text" id="namaCabang" value="STC SUMOBITO" onchange="simpanPengaturanUmum()" title="Klik untuk mengubah cabang">
+    <div class="alamat-header" id="headerAlamatToko">JL. RAYA JOMBANG - SURABAYA</div>
+  </div>
+</div>
+
+<!-- BANNER STATUS -->
+<div class="banner-petugas-jaga">
+  <div class="banner-petugas-info">
+    <span>🏬 <b>Sistem Operasional:</b></span>
+    <span id="badgeCloudStatus" class="badge-cloud local">🔄 Menghubungkan...</span>
+    <span id="badgeRoleUser" class="badge-role-owner" style="display: none;">👑 MODE PEMILIK</span>
+  </div>
+  <div style="display:flex; gap:8px; flex-wrap:wrap; align-items:center;">
+    <button class="aksi-sm btn-primary" onclick="refreshPanelAdmin()" id="btnRefreshAdmin" style="display:none; font-size:10px; padding:4px 8px;">🔄 Refresh Panel</button>
+    <button class="aksi-sm btn-danger" onclick="prosesLogoutFirebase()" id="btnKeluarAuth" style="display:none; font-size:10px; padding:4px 8px;">🚪 Keluar Mode Admin</button>
+  </div>
+</div>
+
+<!-- DASHBOARD MENU: role-separated entry -->
+<div id="dashboard" class="dashboard">
+  <div class="menu-card card-cari-cepat" data-target="cariCepatBarang" id="card_cariCepatBarang"><span class="menu-icon">🔍</span><span>CARI CEPAT BARANG</span></div>
+  <div class="menu-card" data-target="cetakKategori" id="card_cetakKategori"><span class="menu-icon">🖨</span><span>Menu 1: Kategori & Ketersediaan</span></div>
+  <div class="menu-card" data-target="order" id="card_order"><span class="menu-icon">📋</span><span>Menu 2: Order Barang</span></div>
+  <div class="menu-card" data-target="mutasiBarang" id="card_mutasiBarang"><span class="menu-icon">🚚</span><span>Menu 3: Mutasi Barang</span></div>
+  <div class="menu-card" data-target="barangReturn" id="card_barangReturn"><span class="menu-icon">🔄</span><span>Menu 4: Barang Return</span></div>
+</div>
+<div id="cariCepatBarang" class="page" data-index="0">
+  <div class="nav-header-bar"><div class="back-btn" onclick="kembali()">← Menu Utama</div></div>
+  <h2>CARI CEPAT BARANG & CEK HARGA</h2>
+  <div class="form-group"><label>Filter Kategori</label><select id="ccFilterKat" onchange="cariCepatProses()"></select></div>
+  <div class="form-group"><label>Kata Kunci / Nominal</label><input id="ccKeyword" placeholder="Ketik nama, kode, atau harga..." oninput="stcDebouncedCall('cariCepatBarang', cariCepatProses, 120)"></div>
+  <div style="display:flex; gap:6px; margin-bottom:10px;">
+    <div class="form-group" style="flex:1;"><label>Harga Min</label><input id="ccHargaMin" placeholder="0" oninput="fAngka(this); stcDebouncedCall('cariCepatBarang', cariCepatProses, 120);"></div>
+    <div class="form-group" style="flex:1;"><label>Harga Max</label><input id="ccHargaMax" placeholder="Tanpa batas" oninput="fAngka(this); stcDebouncedCall('cariCepatBarang', cariCepatProses, 120);"></div>
+  </div>
+  <button class="btn-danger mt-2" onclick="resetCariCepat()">🔄 Reset Pencarian</button>
+  <div class="table-wrap mt-2">
+    <table>
+      <thead><tr><th>Kode</th><th>Nama</th><th>Kategori</th><th>Satuan</th><th>Meter</th><th>Roll</th><th>Ket</th><th class="kolom-aksi-admin">Aksi</th></tr></thead>
+      <tbody id="tabelCariCepat"></tbody>
+    </table>
+  </div>
+</div>
+
+<!-- MENU 7: KATEGORI & KETERSEDIAAN -->
+<div id="cetakKategori" class="page" data-index="1">
+  <div class="nav-header-bar"><div class="back-btn" onclick="kembali()">← Menu Utama</div></div>
+  <h2>Menu 1: Kategori & Ketersediaan Barang</h2>
+  <div class="form-group"><label>Pilih Kategori</label><select id="pilihKatMenu7" onchange="tampilTabelMenu7()"></select></div>
+  <div class="tombol-baris mt-2">
+    <button class="btn-success" onclick="cetakPdfKategori()">🖨️ Cetak PDF Kategori</button>
+    <button class="btn-warning" onclick="cetakLangsungHTML('LAPORAN BARANG PER KATEGORI', 'tabelMenu7Container')">🖨️ Cetak Langsung</button>
+  </div>
+  <div class="table-wrap mt-2" id="tabelMenu7Container">
+    <h4 id="judulTabelMenu7" style="padding: 6px; color:#38bdf8; font-size: 13px;">Data Barang</h4>
+    <table>
+      <thead><tr><th>Kode</th><th>Nama</th><th>Satuan</th><th>Meter</th><th>Roll</th><th>Ket</th><th class="kolom-aksi-admin">Aksi</th></tr></thead>
+      <tbody id="tabelMenu7"></tbody>
+    </table>
+  </div>
+</div>
+
+<!-- MENU 2: ORDER BARANG & KABEL -->
+<div id="order" class="page" data-index="2">
+  <div class="nav-header-bar"><div class="back-btn" onclick="kembali()">← Menu Utama</div></div>
+  <h2>Menu 2: Order Barang & Kabel</h2>
+  <div class="tab-bar">
+    <div class="tab active" data-tab="buatOrder">Order Manual (Barang)</div>
+    <div class="tab" data-tab="orderOtomatis">🔌 Order Kabel</div>
+  </div>
+
+  <div class="order-summary" id="orderSummary">
+    <div class="order-stat"><b id="orderCountBarang">0</b><span>ORDER BARANG</span></div>
+    <div class="order-stat"><b id="orderCountKabel">0</b><span>ORDER KABEL</span></div>
+    <div class="order-stat"><b id="orderCountTotal">0</b><span>TOTAL ORDER</span></div>
+  </div>
+
+  <!-- TAB 1: ORDER MANUAL -->
+  <div class="tab-content active" id="buatOrder">
+    <div class="form-group">
+      <label>Pilih Toko Pemesan</label>
+      <select id="ordToko">
+        <option value="STC SUMOBITO">STC SUMOBITO</option>
+        <option value="STC PETERONGAN">STC PETERONGAN</option>
+      </select>
+    </div>
+    <div class="form-group">
+      <label>Pilih Kategori Barang</label>
+      <select id="ordKategori" onchange="filterOrdByKategori()"></select>
+    </div>
+    <div class="form-group"><label>Cari Nama Barang</label>
+      <div class="cari-grup">
+        <input id="ordNama" oninput="stcDebouncedCall('prediksiOrd', () => prediksiNama(this,'saranOrd','pilihOrd'), 100)" placeholder="Ketik nama...">
+        <button class="btn-primary" onclick="cariOrdNama()">Cari</button>
+      </div>
+      <div id="saranOrd" class="saran-box"></div>
+    </div>
+    <div id="infoOrd"></div>
+    <div class="form-group"><label>Keterangan Barang</label><input id="ordKet" placeholder="Contoh: 5 pcs / 10 dos"></div>
+    <div class="form-group"><label>Keterangan Stok</label><input id="ordStok" value="0"></div>
+    <button class="btn-primary" id="btnTambahOrder" onclick="tambahOrder()">Tambah ke Daftar Order Barang</button>
+    
+    <div class="order-tools">
+      <input id="filterOrderBarang" placeholder="🔎 Cari kode / nama / pemesan..." oninput="stcDebouncedCall('filterOrder', tabelOrder, 120)">
+      <select id="filterOrderBarangToko" onchange="tabelOrder()"><option value="SEMUA">Semua Pemesan</option><option>STC SUMOBITO</option><option>STC PETERONGAN</option></select>
+    </div>
+    <div class="order-note">Tips: satu item dapat dipesan ulang dengan menambahkan item yang sama. Sistem akan memberi peringatan jika order aktif yang sama sudah ada.</div>
+
+    <div class="table-wrap mt-2" id="tabelOrderBarangContainer" style="border: 1px solid #3b82f6; border-radius: 8px;">
+      <h4 style="padding: 8px; color:#ffffff; background: #1d4ed8; font-size: 13px; font-weight:700;">
+        📦 DAFTAR ORDER BARANG UMUM
+      </h4>
+      <table>
+        <thead>
+          <tr><th>Pemesan</th><th>Kode</th><th>Nama Barang</th><th>Jumlah / Keterangan</th><th>Stok</th><th>Aksi</th></tr>
+        </thead>
+        <tbody id="tabelOrderBarang"></tbody>
+      </table>
+    </div>
+
+    <div style="background:#0f172a; border:1px solid #334155; border-radius:8px; padding:12px; margin-top:14px;">
+      <h4 style="color:#38bdf8; font-size:13px; margin-bottom:8px;">📄 Cetak Surat Permintaan Order Resmi (Barang)</h4>
+      <div class="form-group" style="margin-bottom:8px;">
+        <label>Filter Toko untuk Cetak Surat PDF</label>
+        <select id="filterCetakOrdTokoBarang">
+          <option value="SEMUA">-- CETAK SEMUA PESANAN CABANG --</option>
+          <option value="STC SUMOBITO">STC SUMOBITO</option>
+          <option value="STC PETERONGAN">STC PETERONGAN</option>
+        </select>
+      </div>
+      <div class="tombol-baris">
+        <button class="btn-success" onclick="cetakOrderPDF('barang')">🖨 Cetak Surat Order PDF (Resmi)</button>
+        <button class="btn-warning" onclick="cetakLangsungHTML('SURAT PERMINTAAN ORDER BARANG', 'tabelOrderBarangContainer')">🖨️ Cetak Langsung</button>
+        <button class="btn-danger kolom-aksi-admin" onclick="kosongkanTabelOrder('barang')">🗑 Kosongkan Order Barang</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- TAB 2: ORDER KABEL -->
+  <div class="tab-content" id="orderOtomatis">
+    <div class="info-box">🔌 Generator Order Khusus Kabel: Hitung roll dan meter otomatis, lalu simpan ke tabel kabel.</div>
+    <div class="form-group">
+      <label>Pilih Toko / Proyek Kabel</label>
+      <select id="ordKabToko">
+        <option value="STC SUMOBITO">STC SUMOBITO</option>
+        <option value="STC PETERONGAN">STC PETERONGAN</option>
+      </select>
+    </div>
+    <div class="form-group"><label>Cari Kode Kabel</label>
+      <div class="cari-grup"><input id="ordKabKode"><button class="btn-primary" onclick="cariOrdKabKode()">Cari</button></div>
+    </div>
+    <div class="form-group"><label>Cari Nama Kabel</label>
+      <div class="cari-grup">
+        <input id="ordKabNama" oninput="stcDebouncedCall('prediksiKabel', () => prediksiNamaKabel(this), 100)" placeholder="Ketik nama kabel...">
+        <button class="btn-primary" onclick="cariOrdKabNama()">Cari</button>
+      </div>
+      <div id="saranOrdKab" class="saran-box"></div>
+    </div>
+    <div id="infoOrdKab"></div>
+
+    <div class="form-group">
+      <label>Metode Kebutuhan Kabel</label>
+      <select id="ordKabMode" onchange="toggleModeOrderKabel()">
+        <option value="meter">Berdasarkan Total Meter</option>
+        <option value="roll">Berdasarkan Roll & Sisa Meter</option>
+      </select>
+    </div>
+
+    <div id="groupModeMeter" class="form-group">
+      <label>Panjang Total (Meter)</label>
+      <input id="ordKabMeter" placeholder="Contoh: 150" oninput="fAngka(this); stcDebouncedCall('estimasiKabel', hitungEstimasiKabel, 60);">
+    </div>
+
+    <div id="groupModeRoll" class="form-group" style="display:none;">
+      <div style="display:flex; gap:6px;">
+        <div style="flex:1;"><label>Jumlah Roll</label><input id="ordKabJmlRoll" value="0" oninput="fAngka(this); stcDebouncedCall('estimasiKabel', hitungEstimasiKabel, 60);"></div>
+        <div style="flex:1;"><label>Isi/Roll</label><input id="ordKabIsiRoll" value="50" oninput="fAngka(this); stcDebouncedCall('estimasiKabel', hitungEstimasiKabel, 60);"></div>
+        <div style="flex:1;"><label>Sisa (Meter)</label><input id="ordKabSisaMeter" value="0" oninput="fAngka(this); stcDebouncedCall('estimasiKabel', hitungEstimasiKabel, 60);"></div>
+      </div>
+    </div>
+
+    <div class="form-group">
+      <label>Hasil Kalkulasi Otomatis</label>
+      <input id="ordKabHasilRangkuman" readonly style="background:#0f172a; color:#34d399; font-weight:700;" placeholder="Otomatis terhitung...">
+    </div>
+    <div class="form-group"><label>Catatan Tambahan (Opsional)</label><input id="ordKabCatatan" placeholder="Contoh: SNI / Potong 50m"></div>
+    <div class="form-group"><label>Keterangan Stok</label><input id="ordKabStok" placeholder="Contoh: Ready / Habis" value="0"></div>
+
+    <button class="btn-success" onclick="tambahOrderKabelOtomatis()">➕ Masukkan ke Daftar Order Kabel</button>
+
+    <div class="order-tools">
+      <input id="filterOrderKabel" placeholder="🔎 Cari kode / nama / pemesan..." oninput="stcDebouncedCall('filterOrder', tabelOrder, 120)">
+      <select id="filterOrderKabelToko" onchange="tabelOrder()"><option value="SEMUA">Semua Pemesan</option><option>STC SUMOBITO</option><option>STC PETERONGAN</option></select>
+    </div>
+
+    <div class="table-wrap mt-2" id="tabelOrderKabelContainer" style="border: 1px solid #059669; border-radius: 8px; margin-top: 15px;">
+      <h4 style="padding: 8px; color:#ffffff; background: #047857; font-size: 13px; font-weight:700;">
+        🔌 DAFTAR ORDER KHUSUS KABEL (ROLL & METER)
+      </h4>
+      <table>
+        <thead>
+          <tr><th>Pemesan</th><th>Kode</th><th>Nama Kabel</th><th>Rincian Roll & Meter</th><th>Stok</th><th>Aksi</th></tr>
+        </thead>
+        <tbody id="tabelOrderKabel"></tbody>
+      </table>
+    </div>
+
+    <div style="background:#0f172a; border:1px solid #334155; border-radius:8px; padding:12px; margin-top:14px;">
+      <h4 style="color:#38bdf8; font-size:13px; margin-bottom:8px;">📄 Cetak Surat Permintaan Order Resmi (Kabel)</h4>
+      <div class="form-group" style="margin-bottom:8px;">
+        <label>Filter Toko untuk Cetak Surat PDF</label>
+        <select id="filterCetakOrdTokoKabel">
+          <option value="SEMUA">-- CETAK SEMUA PESANAN CABANG --</option>
+          <option value="STC SUMOBITO">STC SUMOBITO</option>
+          <option value="STC PETERONGAN">STC PETERONGAN</option>
+        </select>
+      </div>
+      <div class="tombol-baris">
+        <button class="btn-success" onclick="cetakOrderPDF('kabel')">🖨 Cetak Surat Order PDF (Resmi)</button>
+        <button class="btn-warning" onclick="cetakLangsungHTML('SURAT PERMINTAAN ORDER KABEL', 'tabelOrderKabelContainer')">🖨️ Cetak Langsung</button>
+        <button class="btn-danger kolom-aksi-admin" onclick="kosongkanTabelOrder('kabel')">🗑 Kosongkan Order Kabel</button>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- MENU 4: MUTASI BARANG -->
+<div id="mutasiBarang" class="page" data-index="3">
+  <div class="nav-header-bar"><div class="back-btn" onclick="kembali()">← Menu Utama</div></div>
+  <h2>Menu 3: Mutasi Barang Antar-Cabang</h2>
+
+  <div class="info-box" style="margin-bottom:10px;">
+    <b>Alur mutasi:</b> pilih asal & tujuan → buat nomor mutasi → pilih barang → isi jumlah → simpan → cetak surat jalan.
+    <div id="mutStatus" style="margin-top:5px;color:#94a3b8;">Siap membuat mutasi baru.</div>
+  </div>
+
+  <div class="form-group">
+    <label>No. Mutasi</label>
+    <div class="cari-grup">
+      <input id="mutNo" placeholder="Otomatis, contoh MUT-20261107-001">
+      <button class="btn-warning" type="button" onclick="buatNomorMutasiBaru()">↻ Baru</button>
+    </div>
+  </div>
+
+  <div class="form-group">
+    <label>Toko Asal</label>
+    <select id="mutAsal">
+      <option value="SUMOBITO">SUMOBITO</option>
+      <option value="PETERONGAN">PETERONGAN</option>
+    </select>
+  </div>
+  <button class="btn-warning mt-2" onclick="tukarPosisiMutasi()">⇄ Tukar Asal &amp; Tujuan</button>
+  <div class="form-group mt-2">
+    <label>Toko Cabang Tujuan</label>
+    <select id="mutTujuan">
+      <option value="PETERONGAN">PETERONGAN</option>
+      <option value="SUMOBITO">SUMOBITO</option>
+    </select>
+  </div>
+
+  <div style="border-top:1px dashed #334155; margin:12px 0; padding-top:10px;">
+    <div class="form-group"><label>Cari Kode Barang</label>
+      <div class="cari-grup"><input id="mutKode" onkeydown="if(event.key==='Enter') cariMutKode()"><button class="btn-primary" onclick="cariMutKode()">Cari</button></div>
+    </div>
+    <div class="form-group"><label>Cari Nama Barang</label>
+      <div class="cari-grup">
+        <input id="mutNama" oninput="stcDebouncedCall('prediksiMut', () => prediksiNama(this,'saranMut','pilihMut'), 100)" onkeydown="if(event.key==='Enter') cariMutNama()" placeholder="Ketik nama...">
+        <button class="btn-primary" onclick="cariMutNama()">Cari</button>
+      </div>
+      <div id="saranMut" class="saran-box"></div>
+    </div>
+    <div id="infoMut"></div>
+
+    <div class="form-group">
+      <label>Jumlah</label>
+      <div class="cari-grup">
+        <input id="mutQty" inputmode="decimal" placeholder="Contoh: 10" oninput="validasiQtyMutasi(this)" onkeydown="if(event.key==='Enter') tambahMutasiItem()">
+        <select id="mutSatuan" style="max-width:130px;">
+          <option value="PCS">PCS</option><option value="UNIT">UNIT</option><option value="ROLL">ROLL</option>
+          <option value="BOX">BOX</option><option value="SET">SET</option><option value="METER">METER</option><option value="LAINNYA">LAINNYA</option>
+        </select>
+      </div>
+    </div>
+
+    <div class="form-group"><label>Keterangan / Catatan Mutasi</label>
+      <input id="mutKet" maxlength="120" placeholder="Contoh: Untuk proyek baru / kondisi baik">
+    </div>
+    <button class="btn-primary" id="btnTambahMutasi" onclick="tambahMutasiItem()">+ Tambah ke Daftar Mutasi</button>
+    <button class="btn-secondary mt-2" type="button" onclick="resetFormMutasiItem()">↺ Bersihkan Item</button>
+  </div>
+
+  <div class="table-wrap mt-2" id="tabelMutasiContainer">
+    <div style="display:flex;justify-content:space-between;align-items:center;gap:8px;padding:6px;">
+      <h4 style="color:#38bdf8;font-size:13px;margin:0;">Daftar Mutasi <span id="mutCount" style="color:#94a3b8;font-weight:normal;"></span></h4>
+      <button class="btn-warning aksi-sm" type="button" onclick="tampilkanRiwayatMutasi()">Riwayat</button>
+    </div>
+    <table>
+      <thead><tr><th>No</th><th>Kode</th><th>Nama</th><th>Jumlah</th><th>Ket</th><th class="kolom-aksi-admin">Aksi</th></tr></thead>
+      <tbody id="tabelMutasi"></tbody>
+    </table>
+  </div>
+
+  <div id="riwayatMutasiBox" class="table-wrap mt-2" style="display:none;">
+    <div style="display:flex;justify-content:space-between;align-items:center;padding:6px;">
+      <h4 style="color:#fbbf24;font-size:13px;margin:0;">Riwayat Mutasi</h4>
+      <button class="btn-secondary aksi-sm" type="button" onclick="stcEl('riwayatMutasiBox').style.display='none'">Tutup</button>
+    </div>
+    <div class="form-group" style="padding:0 6px;"><input id="mutRiwayatCari" oninput="stcDebouncedCall('riwayatMutasi', tabelRiwayatMutasi, 120)" placeholder="Cari nomor, kode, nama, asal, tujuan..."></div>
+    <table>
+      <thead><tr><th>Tanggal</th><th>No. Mutasi</th><th>Rute</th><th>Kode</th><th>Nama</th><th>Jumlah</th></tr></thead>
+      <tbody id="tabelRiwayatMutasi"></tbody>
+    </table>
+  </div>
+
+  <div id="mutSummary" class="info-box mt-2"></div>
+
+  <div class="tombol-baris mt-2">
+    <button class="btn-success" onclick="cetakSuratJalanPDF()">🖨 Cetak Surat Jalan</button>
+    <button class="btn-warning" onclick="cetakLangsungHTML('SURAT JALAN MUTASI BARANG', 'tabelMutasiContainer')">🖨️ Cetak Daftar</button>
+    <button class="btn-danger kolom-aksi-admin" onclick="kosongkanMutasi()">🗑 Kosongkan Mutasi</button>
+  </div>
+</div>
+
+<!-- MENU 4: BARANG RETURN -->
+<div id="barangReturn" class="page" data-index="4">
+  <div class="nav-header-bar"><div class="back-btn" onclick="kembali()">← Menu Utama</div></div>
+  <h2>Menu 4: Pengembalian Barang (Return)</h2>
+
+  <div class="info-box" style="margin-bottom:10px;">
+    <b>Alur return:</b> pilih asal & tujuan → buat nomor return → pilih barang → isi jumlah & alasan → tambahkan → cetak surat return.
+    <div id="retStatus" style="margin-top:5px;color:#94a3b8;">Siap membuat return baru.</div>
+  </div>
+
+  <div class="form-group">
+    <label>No. Return</label>
+    <div class="cari-grup">
+      <input id="retNo" placeholder="Otomatis, contoh RET-20261107-001">
+      <button class="btn-warning" type="button" onclick="buatNomorReturnBaru()">↻ Baru</button>
+    </div>
+  </div>
+
+  <div class="form-group"><label>Toko Asal</label>
+    <select id="retAsal"><option value="PETERONGAN">PETERONGAN</option><option value="SUMOBITO">SUMOBITO</option></select>
+  </div>
+  <button class="btn-warning mt-2" onclick="tukarPosisiReturn()">⇄ Tukar Asal &amp; Tujuan</button>
+  <div class="form-group mt-2"><label>Toko Cabang Tujuan</label>
+    <select id="retTujuan"><option value="SUMOBITO">SUMOBITO</option><option value="PETERONGAN">PETERONGAN</option></select>
+  </div>
+
+  <div style="border-top:1px dashed #334155; margin:12px 0; padding-top:10px;">
+    <div class="form-group"><label>Cari Kode Barang</label>
+      <div class="cari-grup"><input id="retKode" onkeydown="if(event.key==='Enter') cariRetKode()"><button class="btn-primary" onclick="cariRetKode()">Cari</button></div>
+    </div>
+    <div class="form-group"><label>Cari Nama Barang</label>
+      <div class="cari-grup">
+        <input id="retNama" oninput="stcDebouncedCall('prediksiRet', () => prediksiNama(this,'saranRet','pilihRet'), 100)" onkeydown="if(event.key==='Enter') cariRetNama()" placeholder="Ketik nama...">
+        <button class="btn-primary" onclick="cariRetNama()">Cari</button>
+      </div>
+      <div id="saranRet" class="saran-box"></div>
+    </div>
+    <div id="infoRet"></div>
+    <div class="form-group"><label>Jumlah Return</label>
+      <div class="cari-grup"><input id="retQty" inputmode="decimal" placeholder="Contoh: 1" oninput="validasiQtyReturn(this)" onkeydown="if(event.key==='Enter') tambahReturn()">
+      <select id="retSatuan" style="max-width:130px;"><option value="PCS">PCS</option><option value="UNIT">UNIT</option><option value="ROLL">ROLL</option><option value="BOX">BOX</option><option value="SET">SET</option><option value="METER">METER</option><option value="LAINNYA">LAINNYA</option></select></div>
+    </div>
+    <div class="form-group"><label>Alasan Return</label><select id="retAlasan"><option value="RUSAK">RUSAK</option><option value="CACAT">CACAT</option><option value="SALAH BARANG">SALAH BARANG</option><option value="KELEBIHAN">KELEBIHAN</option><option value="TIDAK SESUAI PESANAN">TIDAK SESUAI PESANAN</option><option value="LAINNYA">LAINNYA</option></select></div>
+    <div class="form-group"><label>Keterangan / Catatan</label><input id="retKet" maxlength="120" placeholder="Contoh: Kemasan rusak, isi masih lengkap"></div>
+    <button class="btn-primary" id="btnTambahReturn" onclick="tambahReturn()">+ Tambah ke Return</button>
+    <button class="btn-secondary mt-2" type="button" onclick="resetFormReturnItem()">↺ Bersihkan Item</button>
+  </div>
+
+  <div class="table-wrap mt-2" id="tabelReturnContainer">
+    <div style="display:flex;justify-content:space-between;align-items:center;gap:8px;padding:6px;">
+      <h4 style="color:#38bdf8;font-size:13px;margin:0;">Daftar Return <span id="retCount" style="color:#94a3b8;font-weight:normal;"></span></h4>
+      <button class="btn-warning aksi-sm" type="button" onclick="tampilkanRiwayatReturn()">Riwayat</button>
+    </div>
+    <table><thead><tr><th>No</th><th>Kode</th><th>Nama</th><th>Jumlah</th><th>Alasan</th><th>Ket</th><th class="kolom-aksi-admin">Aksi</th></tr></thead><tbody id="tabelReturn"></tbody></table>
+  </div>
+
+  <div id="riwayatReturnBox" class="table-wrap mt-2" style="display:none;">
+    <div style="display:flex;justify-content:space-between;align-items:center;padding:6px;"><h4 style="color:#fbbf24;font-size:13px;margin:0;">Riwayat Return</h4><button class="btn-secondary aksi-sm" type="button" onclick="stcEl('riwayatReturnBox').style.display='none'">Tutup</button></div>
+    <div class="form-group" style="padding:0 6px;"><input id="retRiwayatCari" oninput="stcDebouncedCall('riwayatReturn', tabelRiwayatReturn, 120)" placeholder="Cari nomor, kode, nama, asal, tujuan, alasan..."></div>
+    <table><thead><tr><th>Tanggal</th><th>No. Return</th><th>Rute</th><th>Kode</th><th>Nama</th><th>Jumlah</th><th>Alasan</th></tr></thead><tbody id="tabelRiwayatReturn"></tbody></table>
+  </div>
+
+  <div id="retSummary" class="info-box mt-2"></div>
+  <div class="tombol-baris mt-2">
+    <button class="btn-success" onclick="cetakReturnPDF()">🖨 Cetak Surat Return</button>
+    <button class="btn-warning" onclick="cetakLangsungHTML('SURAT PENGEMBALIAN BARANG', 'tabelReturnContainer')">🖨️ Cetak Daftar</button>
+    <button class="btn-danger kolom-aksi-admin" onclick="kosongkanReturn()">🗑 Kosongkan Return</button>
+  </div>
+</div>
+
+<!-- MENU-MENU KHUSUS PEMILIK -->
+<!-- FOOTER DENGAN PEMICU RAHASIA DI KATA "Hool's" -->
+<div class="footer">
+  Script HTML System by <span class="secret-hools" onclick="ketukanRahasiaHools()">Hool's</span> &copy; 2026
+</div>
+<script src="../inline.js"></script>
+</body>
+</html>
