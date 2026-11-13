@@ -1,0 +1,27 @@
+PENGGANTIAN APLIKASI STC SUMOBITO - GITHUB PAGES
+
+TARGET STRUKTUR DI ROOT PUBLISHING BRANCH/FOLDER:
+index.html
+inline.js
+app.css
+sw.js
+manifest.webmanifest
+icons/icon-192.png
+icons/icon-512.png
+owner/index.html
+cabang/index.html
+
+PENTING:
+1. File-file ini harus berada di ROOT direktori yang dipakai GitHub Pages.
+2. Jangan unggah folder pembungkus ZIP; unggah ISI ZIP ini.
+3. Pertahankan file lain yang bukan bagian aplikasi bila diperlukan oleh repository.
+4. firestore_rules.rules adalah file aturan Firebase untuk ditinjau/dipublikasikan melalui Firebase, BUKAN file yang dijalankan GitHub Pages.
+5. Setelah commit, tunggu GitHub Pages selesai deploy.
+6. Tes URL:
+   https://stcjombang-beep.github.io/stc-sumobito/
+   https://stcjombang-beep.github.io/stc-sumobito/owner/
+   https://stcjombang-beep.github.io/stc-sumobito/cabang/
+7. Setelah deploy, hapus data/cache situs lama atau lakukan hard refresh agar Service Worker lama tidak menampilkan aplikasi lama.
+
+BACKUP:
+Sebelum mengganti file yang sudah ada, buat branch/backup atau unduh ZIP repository saat ini.
